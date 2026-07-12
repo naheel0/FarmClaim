@@ -1,0 +1,52 @@
+﻿using FarmClaim.Application.Common.Interfaces;
+using FarmClaim.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+// ✅ Alias for consistency
+using RefreshTokenEntity = FarmClaim.Domain.Entities.RefreshToken;
+
+namespace FarmClaim.Infrastructure.Data
+{
+    public class ApplicationDbContext : DbContext, IApplicationDbContext
+    {
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+
+        public DbSet<User> Users { get; set; } = null!;
+
+        // ✅ Use alias here too
+        public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
+
+        public DbSet<Farm> Farms { get; set; } = null!;
+        public DbSet<InsurancePolicy> InsurancePolicies { get; set; } = null!;
+
+        // Use full name for Claim to avoid conflict with System.Security.Claims.Claim
+        public DbSet<FarmClaim.Domain.Entities.Claim> Claims { get; set; } = null!;
+
+        public DbSet<ClaimImage> ClaimImages { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+
+            modelBuilder.Entity<User>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<Farm>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<InsurancePolicy>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<FarmClaim.Domain.Entities.Claim>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<ClaimImage>().HasQueryFilter(e => !e.IsDeleted);
+        }
+
+        public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
+        {
+            foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+            {
+                if (entry.State == EntityState.Added)
+                    entry.Entity.CreatedAt = DateTime.UtcNow;
+
+                if (entry.State == EntityState.Modified)
+                    entry.Entity.UpdatedAt = DateTime.UtcNow;
+            }
+
+            return await base.SaveChangesAsync(ct);
+        }
+    }
+}

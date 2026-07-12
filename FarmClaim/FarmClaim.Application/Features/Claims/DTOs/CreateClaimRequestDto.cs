@@ -1,0 +1,27 @@
+﻿using System;
+using System.ComponentModel.DataAnnotations;
+
+namespace FarmClaim.Application.Features.Claims.DTOs
+{
+    public class CreateClaimRequestDto
+    {
+        [Required(ErrorMessage = "Policy ID is required")]
+        public Guid PolicyId { get; set; }
+
+        [Required(ErrorMessage = "Farm ID is required")]
+        public Guid FarmId { get; set; }
+
+        [Required(ErrorMessage = "Incident date is required")]
+        public DateTime IncidentDate { get; set; }
+
+        [Required(ErrorMessage = "Incident type is required")]
+        [MaxLength(50, ErrorMessage = "Incident type cannot exceed 50 characters")]
+        public string IncidentType { get; set; } = string.Empty;
+
+        [MaxLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
+        public string? Description { get; set; }
+
+        [MaxLength(2000, ErrorMessage = "Damage description cannot exceed 2000 characters")]
+        public string? DamageDescription { get; set; }
+    }
+}

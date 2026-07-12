@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Features\InsurancePolicies\Commands\CreatePolicy\UpdatePolicy\**" />
+    <EmbeddedResource Remove="Features\InsurancePolicies\Commands\CreatePolicy\UpdatePolicy\**" />
+    <None Remove="Features\InsurancePolicies\Commands\CreatePolicy\UpdatePolicy\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Features\Auth\Commands\Register\RegisterUserCommandValidator.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Features\Auth\Commands\Register\RegisterUserCommandValidator.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="8.0.0" />
+    <PackageReference Include="MediatR" Version="14.2.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="8.0.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.35.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\armClaim.Domain\FarmClaim.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
