@@ -30,15 +30,15 @@ namespace FarmClaim.Application.Features.Claims.Queries.GetClaimById
                 .Include(c => c.Policy)
                 .Include(c => c.Farm)
                 .Include(c => c.Images)
-                .FirstOrDefaultAsync(c => c.Id == request.ClaimId && !c.IsDeleted, ct);
+                .FirstOrDefaultAsync(c => c.Id == request.ClaimId
+                    && c.UserId == request.UserId
+                    && !c.IsDeleted, ct);
 
             if (claim == null)
             {
-                _logger.LogWarning("Claim not found: {ClaimId}", request.ClaimId);
+                _logger.LogWarning("Claim not found: {ClaimId} or not owned by user: {UserId}", request.ClaimId, request.UserId);
                 throw new NotFoundException(nameof(Claim), request.ClaimId);
             }
-
-            _logger.LogInformation("Claim {ClaimId} retrieved successfully", claim.Id);
 
             return new ClaimResponseDto
             {

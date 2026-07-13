@@ -5,8 +5,6 @@ using FarmClaim.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace FarmClaim.Application.Features.Farms.Commands.UpdateFarm
 {
@@ -28,6 +26,8 @@ namespace FarmClaim.Application.Features.Farms.Commands.UpdateFarm
             _logger.LogInformation("Updating farm: {FarmId} for user: {UserId}", command.FarmId, command.UserId);
 
             var farm = await _context.Farms
+                .Include(f => f.InsurancePolicies)
+                .Include(f => f.Claims)
                 .FirstOrDefaultAsync(f => f.Id == command.FarmId && f.UserId == command.UserId && !f.IsDeleted, ct);
 
             if (farm == null)
@@ -36,7 +36,6 @@ namespace FarmClaim.Application.Features.Farms.Commands.UpdateFarm
                 throw new NotFoundException(nameof(Farm), command.FarmId);
             }
 
-            // Partial update - only update provided fields
             bool hasChanges = false;
 
             if (!string.IsNullOrWhiteSpace(command.Request.Name))
@@ -63,11 +62,29 @@ namespace FarmClaim.Application.Features.Farms.Commands.UpdateFarm
                 hasChanges = true;
             }
 
+            // ✅ FIXED: Now updates location fields
+            if (command.Request.Latitude.HasValue)
+            {
+                farm.Latitude = command.Request.Latitude.Value;
+                hasChanges = true;
+            }
+
+            if (command.Request.Longitude.HasValue)
+            {
+                farm.Longitude = command.Request.Longitude.Value;
+                hasChanges = true;
+            }
+
+            if (command.Request.LocationGeoJson != null)
+            {
+                farm.LocationGeoJson = command.Request.LocationGeoJson;
+                hasChanges = true;
+            }
+
             if (hasChanges)
             {
                 farm.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync(ct);
-
                 _logger.LogInformation("Farm updated: {FarmId}", farm.Id);
             }
             else
@@ -75,11 +92,6 @@ namespace FarmClaim.Application.Features.Farms.Commands.UpdateFarm
                 _logger.LogInformation("No changes detected for farm: {FarmId}", farm.Id);
             }
 
-            return MapToDto(farm);
-        }
-
-        private static FarmResponseDto MapToDto(Farm farm)
-        {
             return new FarmResponseDto
             {
                 Id = farm.Id,

@@ -21,8 +21,7 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
                 .WithMessage("Incident date cannot be in the future");
 
             RuleFor(x => x.Request.IncidentType)
-                .NotEmpty().WithMessage("Incident type is required")
-                .MaximumLength(50);
+                .IsInEnum().WithMessage("Invalid incident type");
 
             RuleFor(x => x.Request.Description)
                 .MaximumLength(1000)

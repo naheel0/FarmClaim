@@ -2,6 +2,7 @@
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Claims.DTOs;
 using FarmClaim.Domain.Entities;
+using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -25,7 +26,6 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
         {
             _logger.LogInformation("Creating claim for user: {UserId}, Policy: {PolicyId}", command.UserId, command.Request.PolicyId);
 
-            // Verify policy exists, belongs to user, and is active
             var policy = await _context.InsurancePolicies
                 .Include(p => p.Farm)
                 .FirstOrDefaultAsync(p => p.Id == command.Request.PolicyId
@@ -36,7 +36,6 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
             if (policy == null)
                 throw new NotFoundException(nameof(InsurancePolicy), command.Request.PolicyId);
 
-            // Verify farm exists and belongs to user
             var farmExists = await _context.Farms
                 .AnyAsync(f => f.Id == command.Request.FarmId
                     && f.UserId == command.UserId
@@ -45,11 +44,9 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
             if (!farmExists)
                 throw new NotFoundException(nameof(Farm), command.Request.FarmId);
 
-            // Verify policy belongs to the farm
             if (policy.FarmId != command.Request.FarmId)
                 throw new ValidationException(new List<string> { "The selected policy does not belong to the selected farm" });
 
-            // Verify incident date is within policy period
             if (command.Request.IncidentDate < policy.StartDate || command.Request.IncidentDate > policy.EndDate)
                 throw new ValidationException(new List<string> { $"Incident date must be within the policy period ({policy.StartDate:yyyy-MM-dd} to {policy.EndDate:yyyy-MM-dd})" });
 
@@ -59,10 +56,10 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
                 FarmId = command.Request.FarmId,
                 UserId = command.UserId,
                 IncidentDate = command.Request.IncidentDate,
-                IncidentType = command.Request.IncidentType.Trim(),
+                IncidentType = command.Request.IncidentType,
                 Description = command.Request.Description?.Trim(),
                 DamageDescription = command.Request.DamageDescription?.Trim(),
-                Status = "Pending"
+                Status = ClaimStatus.Pending
             };
 
             await _context.Claims.AddAsync(claim, ct);

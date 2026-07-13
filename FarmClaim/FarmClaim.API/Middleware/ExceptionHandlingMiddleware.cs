@@ -12,7 +12,9 @@ namespace FarmClaim.API.Middleware
 
         public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger, IHostEnvironment env)
         {
-            _next = next; _logger = logger; _env = env;
+            _next = next;
+            _logger = logger;
+            _env = env;
         }
 
         public async Task InvokeAsync(HttpContext ctx)
@@ -30,25 +32,58 @@ namespace FarmClaim.API.Middleware
             switch (ex)
             {
                 case ValidationException v:
-                    ctx.Response.StatusCode = (int)HttpStatusCode.BadRequest; err.StatusCode = HttpStatusCode.BadRequest;
-                    err.Message = "Validation Failed"; err.Errors = v.Errors.ToArray(); break;
+                    ctx.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    err.StatusCode = HttpStatusCode.BadRequest;
+                    err.Message = "Validation Failed";
+                    err.Errors = v.Errors.ToArray();
+                    break;
                 case NotFoundException n:
-                    ctx.Response.StatusCode = (int)HttpStatusCode.NotFound; err.StatusCode = HttpStatusCode.NotFound; err.Message = n.Message; break;
+                    ctx.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                    err.StatusCode = HttpStatusCode.NotFound;
+                    err.Message = n.Message;
+                    break;
+                case FarmClaim.Application.Common.Exceptions.UnauthorizedException u:
+                    ctx.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                    err.StatusCode = HttpStatusCode.Unauthorized;
+                    err.Message = u.Message;
+                    break;
                 case UnauthorizedAccessException u:
-                    ctx.Response.StatusCode = (int)HttpStatusCode.Unauthorized; err.StatusCode = HttpStatusCode.Unauthorized; err.Message = u.Message; break;
+                    ctx.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                    err.StatusCode = HttpStatusCode.Unauthorized;
+                    err.Message = u.Message;
+                    break;
                 case InvalidOperationException o:
-                    ctx.Response.StatusCode = (int)HttpStatusCode.BadRequest; err.StatusCode = HttpStatusCode.BadRequest; err.Message = o.Message; break;
+                    ctx.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    err.StatusCode = HttpStatusCode.BadRequest;
+                    err.Message = o.Message;
+                    break;
                 default:
-                    ctx.Response.StatusCode = (int)HttpStatusCode.InternalServerError; err.StatusCode = HttpStatusCode.InternalServerError;
+                    ctx.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                    err.StatusCode = HttpStatusCode.InternalServerError;
                     err.Message = _env.IsDevelopment() ? ex.Message : "Internal server error";
-                    if (_env.IsDevelopment()) err.Details = ex.StackTrace; break;
+                    if (_env.IsDevelopment()) err.Details = ex.StackTrace;
+                    break;
             }
+
             await ctx.Response.WriteAsync(JsonSerializer.Serialize(err, new JsonSerializerOptions
-            { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true }));
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true
+            }));
         }
     }
 
-    public class ErrorResponse { public HttpStatusCode StatusCode { get; set; } public string Message { get; set; } = ""; public string[]? Errors { get; set; } public string? Details { get; set; } }
+    public class ErrorResponse
+    {
+        public HttpStatusCode StatusCode { get; set; }
+        public string Message { get; set; } = "";
+        public string[]? Errors { get; set; }
+        public string? Details { get; set; }
+    }
 
-    public static class Ext { public static IApplicationBuilder UseExceptionHandling(this IApplicationBuilder b) => b.UseMiddleware<ExceptionHandlingMiddleware>(); }
+    public static class ExceptionHandlingExtensions
+    {
+        public static IApplicationBuilder UseExceptionHandling(this IApplicationBuilder builder)
+            => builder.UseMiddleware<ExceptionHandlingMiddleware>();
+    }
 }

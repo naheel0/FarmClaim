@@ -30,12 +30,11 @@ namespace FarmClaim.API.Controllers
         [ProducesResponseType(typeof(PolicyResponseDto), StatusCodes.Status201Created)]
         public async Task<IActionResult> CreatePolicy([FromBody] CreatePolicyRequestDto request)
         {
-            var userId = GetUserId();
             try
             {
+                var userId = GetUserId();
                 var command = new CreatePolicyCommand(userId, request);
                 var result = await _mediator.Send(command);
-
                 return CreatedAtAction(nameof(GetById), new { policyId = result.Id }, result);
             }
             catch (Exception ex)
@@ -54,7 +53,6 @@ namespace FarmClaim.API.Controllers
         {
             var query = new GetMyPoliciesQuery(GetUserId(), pageNumber, pageSize, searchTerm);
             var result = await _mediator.Send(query);
-
             return Ok(result);
         }
 
@@ -67,7 +65,6 @@ namespace FarmClaim.API.Controllers
             {
                 var query = new GetPolicyByIdQuery(policyId, GetUserId());
                 var result = await _mediator.Send(query);
-
                 return Ok(result);
             }
             catch (NotFoundException ex)
@@ -85,7 +82,6 @@ namespace FarmClaim.API.Controllers
             {
                 var command = new UpdatePolicyCommand(policyId, GetUserId(), request);
                 var result = await _mediator.Send(command);
-
                 return Ok(new { message = "Policy updated successfully", policy = result });
             }
             catch (NotFoundException ex)
@@ -103,7 +99,6 @@ namespace FarmClaim.API.Controllers
             {
                 var command = new DeletePolicyCommand(policyId, GetUserId());
                 await _mediator.Send(command);
-
                 return Ok(new { message = "Policy deleted successfully" });
             }
             catch (NotFoundException ex)
@@ -134,7 +129,7 @@ namespace FarmClaim.API.Controllers
 
                 default:
                     return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { error = "An unexpected error occurred" });
+                        new { error = ex.Message, type = ex.GetType().Name });
             }
         }
     }

@@ -14,8 +14,5 @@ namespace FarmClaim.Domain.Entities
         public DateTime? UpdatedAt { get; set; }
 
         public bool IsDeleted { get; set; } = false;
-
-        [Timestamp]
-        public byte[]? RowVersion { get; set; }
     }
 }

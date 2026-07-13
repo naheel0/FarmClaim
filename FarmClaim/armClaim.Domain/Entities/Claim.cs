@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using FarmClaim.Domain.Enums;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -30,7 +31,7 @@ namespace FarmClaim.Domain.Entities
 
         [Required]
         [MaxLength(50)]
-        public string IncidentType { get; set; } = string.Empty;
+        public IncidentType IncidentType { get; set; }
 
         [MaxLength(1000)]
         public string? Description { get; set; }
@@ -40,7 +41,7 @@ namespace FarmClaim.Domain.Entities
 
         [Required]
         [MaxLength(30)]
-        public string Status { get; set; } = "Pending";
+        public ClaimStatus Status { get; set; } = ClaimStatus.Pending;
 
         public decimal? ApprovedAmount { get; set; }
 

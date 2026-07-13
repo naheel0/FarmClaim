@@ -13,8 +13,8 @@ namespace FarmClaim.Application.Features.Claims.Commands.UpdateClaim
                 .NotEmpty().WithMessage("User ID is required");
 
             RuleFor(x => x.Request.IncidentType)
-                .MaximumLength(50)
-                .When(x => x.Request.IncidentType != null);
+                .IsInEnum()
+                .When(x => x.Request.IncidentType.HasValue);
 
             RuleFor(x => x.Request.Description)
                 .MaximumLength(1000)

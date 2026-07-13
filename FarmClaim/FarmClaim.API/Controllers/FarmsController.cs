@@ -33,12 +33,11 @@ namespace FarmClaim.API.Controllers
         [ProducesResponseType(typeof(FarmResponseDto), StatusCodes.Status201Created)]
         public async Task<IActionResult> CreateFarm([FromBody] CreateFarmRequestDto request)
         {
-            var userId = GetUserId();  // Helper method
             try
             {
+                var userId = GetUserId();
                 var command = new CreateFarmCommand(userId, request);
                 var result = await _mediator.Send(command);
-
                 return CreatedAtAction(nameof(GetById), new { farmId = result.Id }, result);
             }
             catch (Exception ex)
@@ -59,9 +58,7 @@ namespace FarmClaim.API.Controllers
             [FromQuery] string? searchTerm = null)
         {
             var query = new GetMyFarmsQuery(GetUserId(), pageNumber, pageSize, searchTerm);
-
             var result = await _mediator.Send(query);
-
             return Ok(result);
         }
 
@@ -77,7 +74,6 @@ namespace FarmClaim.API.Controllers
             {
                 var query = new GetFarmByIdQuery(farmId, GetUserId());
                 var result = await _mediator.Send(query);
-
                 return Ok(result);
             }
             catch (NotFoundException ex)
@@ -98,7 +94,6 @@ namespace FarmClaim.API.Controllers
             {
                 var command = new UpdateFarmCommand(farmId, GetUserId(), request);
                 var result = await _mediator.Send(command);
-
                 return Ok(new { message = "Farm updated successfully", farm = result });
             }
             catch (NotFoundException ex)
@@ -119,7 +114,6 @@ namespace FarmClaim.API.Controllers
             {
                 var command = new DeleteFarmCommand(farmId, GetUserId());
                 await _mediator.Send(command);
-
                 return Ok(new { message = "Farm deleted successfully" });
             }
             catch (NotFoundException ex)
@@ -147,7 +141,6 @@ namespace FarmClaim.API.Controllers
             {
                 var command = new UpdateFarmCommand(farmId, GetUserId(), updateReq);
                 var result = await _mediator.Send(command);
-
                 return Ok(new { message = "Location updated successfully", farm = result });
             }
             catch (NotFoundException ex)
@@ -159,7 +152,6 @@ namespace FarmClaim.API.Controllers
         // ==========================================
         // HELPER METHODS
         // ==========================================
-
         private Guid GetUserId()
         {
             var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -182,7 +174,7 @@ namespace FarmClaim.API.Controllers
 
                 default:
                     return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { error = "An unexpected error occurred" });
+                        new { error = ex.Message, type = ex.GetType().Name });
             }
         }
     }

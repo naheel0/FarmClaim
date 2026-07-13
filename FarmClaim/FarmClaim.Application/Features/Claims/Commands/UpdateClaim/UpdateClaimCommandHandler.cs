@@ -2,6 +2,7 @@
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Claims.DTOs;
 using FarmClaim.Domain.Entities;
+using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -39,15 +40,14 @@ namespace FarmClaim.Application.Features.Claims.Commands.UpdateClaim
                 throw new NotFoundException(nameof(Claim), command.ClaimId);
             }
 
-            // Only allow updates if claim is still Pending
-            if (claim.Status != "Pending")
+            if (claim.Status != ClaimStatus.Pending)
                 throw new ValidationException(new List<string> { $"Cannot update claim with status '{claim.Status}'. Only pending claims can be updated." });
 
             bool hasChanges = false;
 
-            if (!string.IsNullOrWhiteSpace(command.Request.IncidentType))
+            if (command.Request.IncidentType.HasValue)
             {
-                claim.IncidentType = command.Request.IncidentType.Trim();
+                claim.IncidentType = command.Request.IncidentType.Value;
                 hasChanges = true;
             }
 
@@ -65,12 +65,11 @@ namespace FarmClaim.Application.Features.Claims.Commands.UpdateClaim
 
             if (command.Request.IncidentDate.HasValue)
             {
-                // Verify new incident date is within policy period
                 if (claim.Policy != null)
                 {
                     if (command.Request.IncidentDate.Value < claim.Policy.StartDate
                         || command.Request.IncidentDate.Value > claim.Policy.EndDate)
-                        throw new ValidationException(new List<string> { $"Incident date must be within the policy period" });
+                        throw new ValidationException(new List<string> { "Incident date must be within the policy period" });
                 }
                 claim.IncidentDate = command.Request.IncidentDate.Value;
                 hasChanges = true;
@@ -81,10 +80,6 @@ namespace FarmClaim.Application.Features.Claims.Commands.UpdateClaim
                 claim.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync(ct);
                 _logger.LogInformation("Claim updated: {ClaimId}", claim.Id);
-            }
-            else
-            {
-                _logger.LogInformation("No changes detected for claim: {ClaimId}", claim.Id);
             }
 
             return new ClaimResponseDto

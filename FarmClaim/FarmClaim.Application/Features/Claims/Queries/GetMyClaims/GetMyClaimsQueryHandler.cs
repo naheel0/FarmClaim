@@ -2,6 +2,7 @@
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Claims.DTOs;
 using FarmClaim.Domain.Entities;
+using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -33,19 +34,19 @@ namespace FarmClaim.Application.Features.Claims.Queries.GetMyClaims
                 .Include(c => c.Images)
                 .Where(c => c.UserId == request.UserId && !c.IsDeleted);
 
-            // Filter by status
             if (!string.IsNullOrWhiteSpace(request.StatusFilter))
             {
-                var status = request.StatusFilter.Trim();
-                queryable = queryable.Where(c => c.Status == status);
+                if (Enum.TryParse<ClaimStatus>(request.StatusFilter.Trim(), true, out var status))
+                {
+                    queryable = queryable.Where(c => c.Status == status);
+                }
             }
 
-            // Search filter
             if (!string.IsNullOrWhiteSpace(request.SearchTerm))
             {
                 var term = request.SearchTerm.Trim().ToLower();
                 queryable = queryable.Where(c =>
-                    c.IncidentType.ToLower().Contains(term) ||
+                    c.IncidentType.ToString().ToLower().Contains(term) ||
                     (c.Description != null && c.Description.ToLower().Contains(term)) ||
                     (c.DamageDescription != null && c.DamageDescription.ToLower().Contains(term)) ||
                     (c.Policy != null && c.Policy.PolicyNumber.ToLower().Contains(term)) ||

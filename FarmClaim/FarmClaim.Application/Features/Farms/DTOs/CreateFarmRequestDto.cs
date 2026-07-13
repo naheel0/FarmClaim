@@ -1,17 +1,17 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using FluentValidation;
+using System.ComponentModel.DataAnnotations;
 
-namespace FarmClaim.Application.Features.Farms.DTOs
+namespace FarmClaim.Application.Features.Farms.DTOs;
+
+public class CreateFarmRequestDto
 {
-    public record CreateFarmRequestDto
-    {
-        [Required(ErrorMessage = "Farm name is required")]
-        [MaxLength(200, ErrorMessage = "Name cannot exceed 200 characters")]
-        public string Name { get; init; } = string.Empty;
+    [Required]
+    [MaxLength(200)]
+    public string Name { get; set; } = string.Empty;
 
-        [Range(0.01, 1000000, ErrorMessage = "Area must be between 0.01 and 1,000,000 hectares")]
-        public decimal AreaInHectares { get; init; }
+    [Range(0.01, 100000, ErrorMessage = "Area must be greater than 0")]
+    public decimal AreaInHectares { get; set; }
 
-        [MaxLength(500, ErrorMessage = "Address too long")]
-        public string? Address { get; init; }
-    }
+    [MaxLength(500)]
+    public string? Address { get; set; }
 }

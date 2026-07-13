@@ -25,9 +25,6 @@ namespace FarmClaim.API.Controllers
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
         }
 
-        // ==========================================
-        // SUBMIT CLAIM
-        // ==========================================
         [HttpPost]
         [Authorize(Roles = "Farmer")]
         [ProducesResponseType(typeof(ClaimResponseDto), StatusCodes.Status201Created)]
@@ -38,7 +35,6 @@ namespace FarmClaim.API.Controllers
             {
                 var command = new CreateClaimCommand(userId, request);
                 var result = await _mediator.Send(command);
-
                 return CreatedAtAction(nameof(GetById), new { claimId = result.Id }, result);
             }
             catch (Exception ex)
@@ -47,9 +43,6 @@ namespace FarmClaim.API.Controllers
             }
         }
 
-        // ==========================================
-        // LIST CLAIMS (PAGINATED + FILTERABLE)
-        // ==========================================
         [HttpGet]
         [Authorize(Roles = "Farmer")]
         [ProducesResponseType(typeof(PagedResult<ClaimListDto>), StatusCodes.Status200OK)]
@@ -61,13 +54,9 @@ namespace FarmClaim.API.Controllers
         {
             var query = new GetMyClaimsQuery(GetUserId(), pageNumber, pageSize, status, searchTerm);
             var result = await _mediator.Send(query);
-
             return Ok(result);
         }
 
-        // ==========================================
-        // GET CLAIM BY ID
-        // ==========================================
         [HttpGet("{claimId}")]
         [Authorize(Roles = "Farmer,Admin")]
         [ProducesResponseType(typeof(ClaimResponseDto), StatusCodes.Status200OK)]
@@ -77,7 +66,6 @@ namespace FarmClaim.API.Controllers
             {
                 var query = new GetClaimByIdQuery(claimId, GetUserId());
                 var result = await _mediator.Send(query);
-
                 return Ok(result);
             }
             catch (NotFoundException ex)
@@ -86,9 +74,6 @@ namespace FarmClaim.API.Controllers
             }
         }
 
-        // ==========================================
-        // UPDATE CLAIM
-        // ==========================================
         [HttpPut("{claimId}")]
         [Authorize(Roles = "Farmer")]
         [ProducesResponseType(typeof(ClaimResponseDto), StatusCodes.Status200OK)]
@@ -98,7 +83,6 @@ namespace FarmClaim.API.Controllers
             {
                 var command = new UpdateClaimCommand(claimId, GetUserId(), request);
                 var result = await _mediator.Send(command);
-
                 return Ok(new { message = "Claim updated successfully", claim = result });
             }
             catch (NotFoundException ex)
@@ -107,9 +91,6 @@ namespace FarmClaim.API.Controllers
             }
         }
 
-        // ==========================================
-        // DELETE CLAIM
-        // ==========================================
         [HttpDelete("{claimId}")]
         [Authorize(Roles = "Farmer")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -119,7 +100,6 @@ namespace FarmClaim.API.Controllers
             {
                 var command = new DeleteClaimCommand(claimId, GetUserId());
                 await _mediator.Send(command);
-
                 return Ok(new { message = "Claim deleted successfully" });
             }
             catch (NotFoundException ex)
@@ -127,10 +107,6 @@ namespace FarmClaim.API.Controllers
                 return NotFound(new { error = ex.Message });
             }
         }
-
-        // ==========================================
-        // HELPER METHODS
-        // ==========================================
 
         private Guid GetUserId()
         {
@@ -145,16 +121,11 @@ namespace FarmClaim.API.Controllers
             switch (ex)
             {
                 case NotFoundException _:
-                    return StatusCode(StatusCodes.Status404NotFound,
-                        new { error = ex.Message });
-
+                    return StatusCode(StatusCodes.Status404NotFound, new { error = ex.Message });
                 case UnauthorizedAccessException _:
-                    return StatusCode(StatusCodes.Status401Unauthorized,
-                        new { error = "Access denied" });
-
+                    return StatusCode(StatusCodes.Status401Unauthorized, new { error = "Access denied" });
                 default:
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { error = "An unexpected error occurred" });
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An unexpected error occurred" });
             }
         }
     }

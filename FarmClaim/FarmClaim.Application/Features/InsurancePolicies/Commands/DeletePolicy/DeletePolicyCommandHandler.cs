@@ -40,7 +40,7 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.DeletePolicy
             var hasActiveClaims = await _context.Claims
                 .AnyAsync(c => c.PolicyId == command.PolicyId
                     && !c.IsDeleted
-                    && c.Status != ClaimStatus.Pending.ToString(), ct);
+                    && c.Status != ClaimStatus.Pending, ct);
 
             if (hasActiveClaims)
                 throw new ValidationException(new List<string> { "Cannot delete policy with active claims. Please resolve all claims first." });
@@ -50,7 +50,6 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.DeletePolicy
             await _context.SaveChangesAsync(ct);
 
             _logger.LogInformation("Policy deleted: {PolicyId}", policy.Id);
-
             return Unit.Value;
         }
     }

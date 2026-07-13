@@ -3,6 +3,7 @@ using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Features.Farmers.Commands.UpdateProfile;
 using FarmClaim.Application.Features.Farmers.DTOs;
 using FarmClaim.Application.Features.Farmers.Queries.GetCurrentUserProfile;
+using FarmClaim.Application.Features.Farmers.Queries.GetAllFarmers; // ✅ ADDED
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,9 +11,6 @@ using System.Security.Claims;
 
 namespace FarmClaim.API.Controllers
 {
-    /// <summary>
-    /// Farmer profile management endpoints
-    /// </summary>
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
@@ -25,11 +23,8 @@ namespace FarmClaim.API.Controllers
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
         }
 
-        /// <summary>
-        /// Get current authenticated user's profile
-        /// </summary>
         [HttpGet("me")]
-        [Authorize(Roles = "Farmer")] // Only farmers can access their own profile
+        [Authorize(Roles = "Farmer")]
         [ProducesResponseType(typeof(FarmerProfileDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -46,7 +41,6 @@ namespace FarmClaim.API.Controllers
             {
                 var query = new GetCurrentUserProfileQuery(userId);
                 var result = await _mediator.Send(query);
-
                 return Ok(result);
             }
             catch (NotFoundException ex)
@@ -55,9 +49,6 @@ namespace FarmClaim.API.Controllers
             }
         }
 
-        /// <summary>
-        /// Update current user's profile
-        /// </summary>
         [HttpPut("me")]
         [Authorize(Roles = "Farmer")]
         [ProducesResponseType(typeof(FarmerProfileDto), StatusCodes.Status200OK)]
@@ -76,12 +67,7 @@ namespace FarmClaim.API.Controllers
             {
                 var command = new UpdateProfileCommand(userId, request);
                 var result = await _mediator.Send(command);
-
-                return Ok(new
-                {
-                    message = "Profile updated successfully",
-                    profile = result
-                });
+                return Ok(new { message = "Profile updated successfully", profile = result });
             }
             catch (NotFoundException ex)
             {
@@ -89,9 +75,6 @@ namespace FarmClaim.API.Controllers
             }
         }
 
-        /// <summary>
-        /// Get farmer by ID (Admin only)
-        /// </summary>
         [HttpGet("{farmerId}")]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(FarmerProfileDto), StatusCodes.Status200OK)]
@@ -101,9 +84,8 @@ namespace FarmClaim.API.Controllers
         {
             try
             {
-                var query = new GetCurrentUserProfileQuery(farmerId); // Reuse same query for now
+                var query = new GetCurrentUserProfileQuery(farmerId);
                 var result = await _mediator.Send(query);
-
                 return Ok(result);
             }
             catch (NotFoundException ex)
@@ -112,9 +94,7 @@ namespace FarmClaim.API.Controllers
             }
         }
 
-        /// <summary>
-        /// List all farmers (Admin only) - paginated
-        /// </summary>
+        // ✅ FIXED: Now actually implemented
         [HttpGet]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(PagedResult<FarmerListDto>), StatusCodes.Status200OK)]
@@ -124,16 +104,9 @@ namespace FarmClaim.API.Controllers
             [FromQuery] int pageSize = 20,
             [FromQuery] string? searchTerm = null)
         {
-            // TODO: Implement paginated list query (Step 2b)
-            // For now, return empty paged result
-            return Ok(new PagedResult<FarmerListDto>
-            {
-                Items = new List<FarmerListDto>().AsReadOnly(),
-                PageNumber = pageNumber,
-                PageSize = pageSize,
-                TotalCount = 0,
-                TotalPages = 0
-            });
+            var query = new GetAllFarmersQuery(pageNumber, pageSize, searchTerm);
+            var result = await _mediator.Send(query);
+            return Ok(result);
         }
     }
 }

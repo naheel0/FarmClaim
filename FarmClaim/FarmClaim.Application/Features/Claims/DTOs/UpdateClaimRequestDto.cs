@@ -1,12 +1,12 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using FarmClaim.Domain.Enums;
 
 namespace FarmClaim.Application.Features.Claims.DTOs
 {
     public class UpdateClaimRequestDto
     {
-        [MaxLength(50, ErrorMessage = "Incident type cannot exceed 50 characters")]
-        public string? IncidentType { get; set; }
+        public IncidentType? IncidentType { get; set; }
 
         [MaxLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
         public string? Description { get; set; }

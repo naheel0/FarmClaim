@@ -1,6 +1,7 @@
 ﻿using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Domain.Entities;
+using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -35,8 +36,7 @@ namespace FarmClaim.Application.Features.Claims.Commands.DeleteClaim
                 throw new NotFoundException(nameof(Claim), command.ClaimId);
             }
 
-            // Only allow deleting pending claims
-            if (claim.Status != "Pending")
+            if (claim.Status != ClaimStatus.Pending)
                 throw new ValidationException(new List<string> { $"Cannot delete claim with status '{claim.Status}'. Only pending claims can be deleted." });
 
             claim.IsDeleted = true;
@@ -44,7 +44,6 @@ namespace FarmClaim.Application.Features.Claims.Commands.DeleteClaim
             await _context.SaveChangesAsync(ct);
 
             _logger.LogInformation("Claim deleted: {ClaimId}", claim.Id);
-
             return Unit.Value;
         }
     }

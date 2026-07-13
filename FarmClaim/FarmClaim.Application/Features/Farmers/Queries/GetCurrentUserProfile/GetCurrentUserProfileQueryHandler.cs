@@ -1,59 +1,63 @@
 ﻿using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Farmers.DTOs;
-using FarmClaim.Domain.Entities;
+using FarmClaim.Application.Features.Farmers.Queries.GetCurrentUserProfile;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
-namespace FarmClaim.Application.Features.Farmers.Queries.GetCurrentUserProfile
+namespace FarmClaim.Application.Features.Farmers.Queries.GetCurrentUserProfile;
+
+public class GetCurrentUserProfileQueryHandler
+    : IRequestHandler<GetCurrentUserProfileQuery, FarmerProfileDto>
 {
-    public class GetCurrentUserProfileQueryHandler : IRequestHandler<GetCurrentUserProfileQuery, FarmerProfileDto>
+    private readonly IApplicationDbContext _context;
+
+    public GetCurrentUserProfileQueryHandler(IApplicationDbContext context)
     {
-        private readonly IApplicationDbContext _context;
-        private readonly ILogger<GetCurrentUserProfileQueryHandler> _logger;
+        _context = context;
+    }
 
-        public GetCurrentUserProfileQueryHandler(
-            IApplicationDbContext context,
-            ILogger<GetCurrentUserProfileQueryHandler> logger)
+    public async Task<FarmerProfileDto> Handle(
+        GetCurrentUserProfileQuery request, CancellationToken ct)
+    {
+        var user = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == request.UserId, ct);
+
+        if (user == null)
+            throw new NotFoundException($"User with ID '{request.UserId}' not found.");
+
+        var totalFarms = await _context.Farms
+            .CountAsync(f => f.UserId == request.UserId, ct);
+
+        var farmIds = await _context.Farms
+            .Where(f => f.UserId == request.UserId)
+            .Select(f => f.Id)
+            .ToListAsync(ct);
+
+        int totalPolicies = 0;
+        if (farmIds.Any())
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            totalPolicies = await _context.InsurancePolicies
+                .CountAsync(p => farmIds.Contains(p.FarmId), ct);
         }
 
-        public async Task<FarmerProfileDto> Handle(GetCurrentUserProfileQuery request, CancellationToken ct)
+        var totalClaims = await _context.Claims
+            .CountAsync(c => c.UserId == request.UserId, ct);
+
+        return new FarmerProfileDto
         {
-            _logger.LogInformation("Getting profile for user: {UserId}", request.UserId);
-
-            var user = await _context.Users
-                .AsNoTracking()
-                .Include(u => u.Farms)
-                .Include(u => u.Policies)
-                .Include(u => u.Claims)
-                .FirstOrDefaultAsync(u => u.Id == request.UserId && !u.IsDeleted, ct);
-
-            if (user == null)
-            {
-                _logger.LogWarning("User not found: {UserId}", request.UserId);
-                throw new NotFoundException(nameof(User), request.UserId);
-            }
-
-            _logger.LogInformation("Profile retrieved successfully for: {Email}", user.Email);
-
-            return new FarmerProfileDto
-            {
-                Id = user.Id,
-                Email = user.Email,
-                Role = user.Role.ToString(),
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                PhoneNumber = user.PhoneNumber,
-                CreatedAt = user.CreatedAt,
-                LastLoginAt = user.LastLoginAt,
-                TotalFarms = user.Farms?.Count(f => !f.IsDeleted) ?? 0,
-                TotalPolicies = user.Policies?.Count(p => !p.IsDeleted && p.IsActive) ?? 0,
-                TotalClaims = user.Claims?.Count(c => !c.IsDeleted) ?? 0
-            };
-        }
+            Id = user.Id,
+            Email = user.Email,
+            Role = user.Role.ToString(),
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            PhoneNumber = user.PhoneNumber,
+            CreatedAt = user.CreatedAt,
+            LastLoginAt = user.LastLoginAt,
+            TotalFarms = totalFarms,
+            TotalPolicies = totalPolicies,
+            TotalClaims = totalClaims
+        };
     }
 }

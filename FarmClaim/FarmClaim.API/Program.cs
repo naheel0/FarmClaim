@@ -7,7 +7,6 @@ using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.CookiePolicy;
-// ✅ REQUIRED for cookies
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -35,7 +34,7 @@ builder.Services.AddMediatR(cfg =>
 });
 
 // ============================================
-// ✅ FLUENTVALIDATION REGISTRATION (CORRECT WAY)
+//  FLUENTVALIDATION REGISTRATION 
 // ============================================
 
 // Method A: AddValidatorsFromAssemblies (requires both usings above)
@@ -51,7 +50,7 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBeh
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
 
 // ============================================
-// ✅ COOKIE POLICY - FIXED ENUM NAMES
+//  COOKIE POLICY 
 // ============================================
 if (builder.Environment.IsDevelopment())
 {
@@ -59,7 +58,6 @@ if (builder.Environment.IsDevelopment())
     builder.Services.Configure<CookiePolicyOptions>(options =>
     {
         options.MinimumSameSitePolicy = SameSiteMode.Lax;
-        // ✅ FIX: CookieSecureOption → CookieSecurePolicy
         options.Secure = CookieSecurePolicy.None;
         options.HttpOnly = HttpOnlyPolicy.Always;
     });
@@ -70,7 +68,6 @@ else
     builder.Services.Configure<CookiePolicyOptions>(options =>
     {
         options.MinimumSameSitePolicy = SameSiteMode.Strict;
-        // ✅ FIX: Correct enum name
         options.Secure = CookieSecurePolicy.Always;
         options.HttpOnly = HttpOnlyPolicy.Always;
     });
@@ -194,7 +191,7 @@ if (app.Environment.IsDevelopment())
 app.UseExceptionHandling();     // 1st: Error handling
 app.UseHttpsRedirection();       // 2nd: HTTPS redirect
 app.UseRouting();               // 3rd: Routing
-app.UseCookiePolicy();           // 4th: ✅ Cookie policy (MUST be before auth!)
+app.UseCookiePolicy();           // 4th: Cookie policy (MUST be before auth!)
 app.UseCors("AllowFrontend");   // 5th: CORS
 app.UseAuthentication();         // 6th: Authentication
 app.UseAuthorization();          // 7th: Authorization
@@ -215,19 +212,19 @@ using (var scope = app.Services.CreateScope())
         if (pendingMigrations.Any())
         {
             await db.Database.MigrateAsync();
-            Console.WriteLine("✅ Database migrations applied successfully!");
+            Console.WriteLine(" Database migrations applied successfully!");
         }
         else
         {
-            Console.WriteLine("✅ Database is up to date.");
+            Console.WriteLine(" Database is up to date.");
         }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"❌ Migration failed: {ex.Message}");
+        Console.WriteLine($" Migration failed: {ex.Message}");
         throw;
     }
 }
 
-Console.WriteLine("🚀 FarmClaim API starting...");
+Console.WriteLine(" FarmClaim API starting...");
 await app.RunAsync();

@@ -1,26 +1,22 @@
 ﻿using FluentValidation;
-using FarmClaim.Application.Features.Farms.DTOs;
 
-namespace FarmClaim.Application.Features.Farms.Commands.CreateFarm
+namespace FarmClaim.Application.Features.Farms.Commands.CreateFarm;
+
+public class CreateFarmCommandValidator : AbstractValidator<CreateFarmCommand>
 {
-    public class CreateFarmCommandValidator : AbstractValidator<CreateFarmCommand>
+    public CreateFarmCommandValidator()
     {
-        public CreateFarmCommandValidator()
-        {
-            RuleFor(x => x.Request.Name)
-                .NotEmpty().WithMessage("Farm name is required")
-                .MaximumLength(200).WithMessage("Name too long")
-                .Matches(@"^[a-zA-Z0-9\s'\-,\.]+$").WithMessage("Invalid characters in name");
+        RuleFor(x => x.UserId).NotEmpty();
 
-            RuleFor(x => x.Request.AreaInHectares)
-                .GreaterThan(0).WithMessage("Area must be greater than 0")
-                .LessThanOrEqualTo(1000000).WithMessage("Area cannot exceed 1,000,000 hectares");
+        RuleFor(x => x.Request.Name)
+            .NotEmpty().WithMessage("Farm name is required")
+            .MaximumLength(200).WithMessage("Farm name must not exceed 200 characters");
 
-            RuleFor(x => x.UserId)
-                .NotEmpty().WithMessage("User ID is required");
+        RuleFor(x => x.Request.AreaInHectares)
+            .GreaterThan(0).WithMessage("Area must be greater than 0");
 
-            RuleFor(x => x.Request.Address)
-                .MaximumLength(500).When(x => !string.IsNullOrEmpty(x.Request.Address));
-        }
+        RuleFor(x => x.Request.Address)
+            .MaximumLength(500).WithMessage("Address must not exceed 500 characters")
+            .When(x => x.Request.Address != null);
     }
 }
