@@ -52,6 +52,11 @@ namespace FarmClaim.Domain.Entities
 
         [MaxLength(500)]
         public string? RejectionReason { get; set; }
+        [Column(TypeName = "nvarchar(max)")]
+        public string? WeatherSnapshot { get; set; }
+
+        [Column(TypeName = "nvarchar(max)")]
+        public string? AIAnalysisResult { get; set; }
 
         public virtual ICollection<ClaimImage> Images { get; set; } = new List<ClaimImage>();
     }

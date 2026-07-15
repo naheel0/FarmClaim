@@ -21,6 +21,8 @@ namespace FarmClaim.Application.Features.Claims.DTOs
         public string? ReviewedBy { get; init; }
         public DateTime? ReviewedAt { get; init; }
         public string? RejectionReason { get; init; }
+        public string? WeatherSnapshot { get; init; }
+        public string? AIAnalysisResult { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
         public List<ClaimImageDto> Images { get; init; } = new();

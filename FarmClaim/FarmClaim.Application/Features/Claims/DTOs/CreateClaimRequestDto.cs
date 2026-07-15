@@ -1,6 +1,5 @@
-﻿using System;
+﻿using FarmClaim.Domain.Enums;
 using System.ComponentModel.DataAnnotations;
-using FarmClaim.Domain.Enums;
 
 namespace FarmClaim.Application.Features.Claims.DTOs
 {
@@ -23,5 +22,7 @@ namespace FarmClaim.Application.Features.Claims.DTOs
 
         [MaxLength(2000, ErrorMessage = "Damage description cannot exceed 2000 characters")]
         public string? DamageDescription { get; set; }
+
+        public List<string> ImageUrls { get; set; } = new();
     }
 }

@@ -24,6 +24,14 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<IJwtService, JwtService>();
+// ============================================
+// EXTERNAL API SERVICES
+// ============================================
+builder.Services.AddHttpClient<IWeatherService, FarmClaim.Infrastructure.Services.WeatherApiService>();
+builder.Services.AddHttpClient<IGeminiVisionService, FarmClaim.Infrastructure.Services.GeminiVisionService>(client =>
+{
+    client.BaseAddress = new Uri("https://generativelanguage.googleapis.com");
+});
 
 // ============================================
 // MEDIATR (CQRS)
