@@ -40,5 +40,7 @@ namespace FarmClaim.Domain.Entities
         public virtual ICollection<InsurancePolicy> InsurancePolicies { get; set; } = new List<InsurancePolicy>();
 
         public virtual ICollection<FarmClaim.Domain.Entities.Claim> Claims { get; set; } = new List<FarmClaim.Domain.Entities.Claim>();
+        [MaxLength(100)]
+        public string? CropType { get; set; }
     }
 }

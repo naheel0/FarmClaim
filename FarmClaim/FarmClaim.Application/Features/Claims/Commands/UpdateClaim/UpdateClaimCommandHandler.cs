@@ -99,6 +99,8 @@ namespace FarmClaim.Application.Features.Claims.Commands.UpdateClaim
                 ReviewedBy = claim.ReviewedBy,
                 ReviewedAt = claim.ReviewedAt,
                 RejectionReason = claim.RejectionReason,
+                WeatherSnapshot = claim.WeatherSnapshot,
+                AIAnalysisResult = claim.AIAnalysisResult,
                 CreatedAt = claim.CreatedAt,
                 UpdatedAt = claim.UpdatedAt,
                 Images = claim.Images

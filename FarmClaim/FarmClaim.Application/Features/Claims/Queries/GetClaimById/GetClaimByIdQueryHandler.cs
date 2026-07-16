@@ -59,6 +59,8 @@ namespace FarmClaim.Application.Features.Claims.Queries.GetClaimById
                 RejectionReason = claim.RejectionReason,
                 CreatedAt = claim.CreatedAt,
                 UpdatedAt = claim.UpdatedAt,
+                WeatherSnapshot = claim.WeatherSnapshot,
+                AIAnalysisResult = claim.AIAnalysisResult,
                 Images = claim.Images
                     .Where(i => !i.IsDeleted)
                     .OrderBy(i => i.DisplayOrder)
