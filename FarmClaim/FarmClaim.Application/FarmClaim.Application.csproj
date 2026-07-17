@@ -7,10 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Features\Admin\Admin\**" />
     <Compile Remove="Features\Claims\Commands\NewFolder\**" />
     <Compile Remove="Features\InsurancePolicies\Commands\CreatePolicy\UpdatePolicy\**" />
+    <EmbeddedResource Remove="Features\Admin\Admin\**" />
     <EmbeddedResource Remove="Features\Claims\Commands\NewFolder\**" />
     <EmbeddedResource Remove="Features\InsurancePolicies\Commands\CreatePolicy\UpdatePolicy\**" />
+    <None Remove="Features\Admin\Admin\**" />
     <None Remove="Features\Claims\Commands\NewFolder\**" />
     <None Remove="Features\InsurancePolicies\Commands\CreatePolicy\UpdatePolicy\**" />
   </ItemGroup>
