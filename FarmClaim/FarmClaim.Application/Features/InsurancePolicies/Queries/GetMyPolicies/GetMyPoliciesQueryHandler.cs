@@ -23,14 +23,20 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Queries.GetMyPolicies
 
         public async Task<PagedResult<PolicyListDto>> Handle(GetMyPoliciesQuery request, CancellationToken ct)
         {
-            _logger.LogInformation("Getting policies for user {UserId}, Page: {Page}, Size: {Size}",
-                request.UserId, request.PageNumber, request.PageSize);
+            _logger.LogInformation("Getting policies for user {UserId}, Page: {Page}, Size: {Size}, Status: {Status}",
+                request.UserId, request.PageNumber, request.PageSize, request.Status);
 
             IQueryable<InsurancePolicy> queryable = _context.InsurancePolicies
                 .AsNoTracking()
                 .Include(p => p.Farm)
                 .Include(p => p.Claims)
                 .Where(p => p.Farm!.UserId == request.UserId && !p.IsDeleted);
+
+            // NEW: Status filter
+            if (request.Status.HasValue)
+            {
+                queryable = queryable.Where(p => p.Status == request.Status.Value);
+            }
 
             if (!string.IsNullOrWhiteSpace(request.SearchTerm))
             {
@@ -61,7 +67,10 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Queries.GetMyPolicies
                 SumInsured = p.SumInsured,
                 StartDate = p.StartDate,
                 EndDate = p.EndDate,
-                IsActive = p.IsActive,
+                // OLD: IsActive = p.IsActive,
+                // NEW:
+                Status = p.Status,
+                RejectionReason = p.RejectionReason,
                 FarmName = p.Farm?.Name,
                 ClaimsCount = p.Claims.Count(c => !c.IsDeleted)
             }).ToList();

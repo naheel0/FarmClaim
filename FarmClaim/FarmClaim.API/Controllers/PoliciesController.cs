@@ -44,16 +44,35 @@ namespace FarmClaim.API.Controllers
         }
 
         [HttpGet]
+
         [Authorize(Roles = "Farmer")]
+
         [ProducesResponseType(typeof(PagedResult<PolicyListDto>), StatusCodes.Status200OK)]
+
         public async Task<IActionResult> GetMyPolicies(
+
             [FromQuery] int pageNumber = 1,
+
             [FromQuery] int pageSize = 20,
-            [FromQuery] string? searchTerm = null)
+
+            [FromQuery] string? searchTerm = null,
+
+            [FromQuery] string? status = null)
+
         {
-            var query = new GetMyPoliciesQuery(GetUserId(), pageNumber, pageSize, searchTerm);
-            var result = await _mediator.Send(query);
-            return Ok(result);
+
+            var statusFilter = !string.IsNullOrWhiteSpace(status)
+
+                ? Enum.Parse<FarmClaim.Domain.Enums.PolicyStatus>(status, true)
+
+                : (FarmClaim.Domain.Enums.PolicyStatus?)null;
+
+
+
+            return Ok(await _mediator.Send(new GetMyPoliciesQuery(
+
+                GetUserId(), pageNumber, pageSize, searchTerm, statusFilter)));
+
         }
 
         [HttpGet("{policyId}")]

@@ -31,18 +31,28 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
 
         public async Task<ClaimResponseDto> Handle(CreateClaimCommand command, CancellationToken ct)
         {
-            _logger.LogInformation("Creating claim for user: {UserId}, Policy: {PolicyId}", command.UserId, command.Request.PolicyId);
+            _logger.LogInformation("Creating claim for user: {UserId}, Policy: {PolicyId}",
+                command.UserId, command.Request.PolicyId);
 
+            // Validate policy: belongs to user, is Active, not expired
             var policy = await _context.InsurancePolicies
                 .Include(p => p.Farm)
                 .FirstOrDefaultAsync(p => p.Id == command.Request.PolicyId
                     && p.Farm!.UserId == command.UserId
-                    && p.IsActive
+                    && p.Status == PolicyStatus.Active
                     && !p.IsDeleted, ct);
 
             if (policy == null)
                 throw new NotFoundException(nameof(InsurancePolicy), command.Request.PolicyId);
 
+            // NEW: Check policy not expired
+            if (policy.EndDate < DateTime.UtcNow)
+                throw new ValidationException(new List<string>
+                {
+                    $"This policy expired on {policy.EndDate:yyyy-MM-dd}. Cannot file a claim."
+                });
+
+            // Validate farm belongs to user
             var farm = await _context.Farms
                 .FirstOrDefaultAsync(f => f.Id == command.Request.FarmId
                     && f.UserId == command.UserId
@@ -51,11 +61,33 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
             if (farm == null)
                 throw new NotFoundException(nameof(Farm), command.Request.FarmId);
 
+            // Validate policy belongs to the selected farm
             if (policy.FarmId != command.Request.FarmId)
-                throw new ValidationException(new List<string> { "The selected policy does not belong to the selected farm" });
+                throw new ValidationException(new List<string>
+                {
+                    "The selected policy does not belong to the selected farm"
+                });
 
-            if (command.Request.IncidentDate < policy.StartDate || command.Request.IncidentDate > policy.EndDate)
-                throw new ValidationException(new List<string> { $"Incident date must be within the policy period ({policy.StartDate:yyyy-MM-dd} to {policy.EndDate:yyyy-MM-dd})" });
+            // Validate incident date is within policy period
+            if (command.Request.IncidentDate < policy.StartDate
+                || command.Request.IncidentDate > policy.EndDate)
+                throw new ValidationException(new List<string>
+                {
+                    $"Incident date must be within the policy period ({policy.StartDate:yyyy-MM-dd} to {policy.EndDate:yyyy-MM-dd})"
+                });
+
+            // NEW: Check for duplicate claim on same policy + same incident date
+            var duplicate = await _context.Claims
+                .AnyAsync(c => c.PolicyId == command.Request.PolicyId
+                    && c.FarmId == command.Request.FarmId
+                    && c.IncidentDate.Date == command.Request.IncidentDate.Date
+                    && !c.IsDeleted, ct);
+
+            if (duplicate)
+                throw new ValidationException(new List<string>
+                {
+                    "A claim already exists for this policy and incident date."
+                });
 
             var claim = new Claim
             {
@@ -69,7 +101,7 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
                 Status = ClaimStatus.Pending
             };
 
-            // Weather API
+            // Weather API (your existing code — unchanged)
             try
             {
                 if (farm.Latitude.HasValue && farm.Longitude.HasValue)
@@ -98,7 +130,7 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
                 });
             }
 
-            // Gemini Vision
+            // Gemini Vision (your existing code — unchanged)
             try
             {
                 var imageUrls = command.Request.ImageUrls ?? new List<string>();
@@ -129,7 +161,8 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
             await _context.Claims.AddAsync(claim, ct);
             await _context.SaveChangesAsync(ct);
 
-            _logger.LogInformation("Claim created: {ClaimId} for Policy: {PolicyId}", claim.Id, claim.PolicyId);
+            _logger.LogInformation("Claim created: {ClaimId} for Policy: {PolicyId}",
+                claim.Id, claim.PolicyId);
 
             return new ClaimResponseDto
             {

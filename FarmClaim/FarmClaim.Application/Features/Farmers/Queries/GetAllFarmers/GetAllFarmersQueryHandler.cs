@@ -2,6 +2,7 @@
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Farmers.DTOs;
 using FarmClaim.Domain.Entities;
+using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -62,7 +63,7 @@ namespace FarmClaim.Application.Features.Farmers.Queries.GetAllFarmers
                 CreatedAt = u.CreatedAt,
                 LastLoginAt = u.LastLoginAt,
                 FarmsCount = u.Farms.Count(f => !f.IsDeleted),
-                PoliciesCount = u.Policies.Count(p => !p.IsDeleted && p.IsActive)
+                PoliciesCount = u.Policies.Count(p => !p.IsDeleted && p.Status == PolicyStatus.Active)
             }).ToList();
 
             var totalPages = request.PageSize > 0

@@ -45,13 +45,26 @@ namespace FarmClaim.Domain.Entities
 
         public decimal? ApprovedAmount { get; set; }
 
+        // Review tracking
+        // OLD: public string? ReviewedBy { get; set; }
+        public Guid? ReviewedByUserId { get; set; }
+        [ForeignKey(nameof(ReviewedByUserId))]
+        public virtual User? ReviewedByUser { get; set; }
+
         [MaxLength(255)]
-        public string? ReviewedBy { get; set; }
+        public string? ReviewedBy { get; set; }  // kept for backward compat / display
 
         public DateTime? ReviewedAt { get; set; }
 
         [MaxLength(500)]
         public string? RejectionReason { get; set; }
+
+        // Payment tracking
+        public DateTime? PaidAt { get; set; }
+        [MaxLength(100)]
+        public string? PaymentReference { get; set; }
+
+        // AI & Weather (your existing fields — unchanged)
         [Column(TypeName = "nvarchar(max)")]
         public string? WeatherSnapshot { get; set; }
 

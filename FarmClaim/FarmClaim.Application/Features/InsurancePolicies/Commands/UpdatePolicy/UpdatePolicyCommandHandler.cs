@@ -95,12 +95,6 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.UpdatePolicy
                 hasChanges = true;
             }
 
-            if (command.Request.IsActive.HasValue)
-            {
-                policy.IsActive = command.Request.IsActive.Value;
-                hasChanges = true;
-            }
-
             if (hasChanges)
             {
                 policy.UpdatedAt = DateTime.UtcNow;
@@ -126,7 +120,12 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.UpdatePolicy
                 SumInsured = policy.SumInsured,
                 StartDate = policy.StartDate,
                 EndDate = policy.EndDate,
-                IsActive = policy.IsActive,
+                Status = policy.Status,
+                ApprovedAt = policy.ApprovedAt,
+                ApprovedByUserId = policy.ApprovedByUserId,
+                RejectedAt = policy.RejectedAt,
+                RejectionReason = policy.RejectionReason,
+                CancelledAt = policy.CancelledAt,
                 CreatedAt = policy.CreatedAt,
                 UpdatedAt = policy.UpdatedAt,
                 ClaimsCount = policy.Claims.Count(c => !c.IsDeleted)

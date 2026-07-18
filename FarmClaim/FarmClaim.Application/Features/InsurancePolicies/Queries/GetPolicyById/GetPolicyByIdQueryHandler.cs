@@ -56,7 +56,12 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Queries.GetPolicyById
                 SumInsured = policy.SumInsured,
                 StartDate = policy.StartDate,
                 EndDate = policy.EndDate,
-                IsActive = policy.IsActive,
+                Status = policy.Status,
+                ApprovedAt = policy.ApprovedAt,
+                ApprovedByUserId = policy.ApprovedByUserId,
+                RejectedAt = policy.RejectedAt,
+                RejectionReason = policy.RejectionReason,
+                CancelledAt = policy.CancelledAt,
                 CreatedAt = policy.CreatedAt,
                 UpdatedAt = policy.UpdatedAt,
                 ClaimsCount = policy.Claims.Count(c => !c.IsDeleted)

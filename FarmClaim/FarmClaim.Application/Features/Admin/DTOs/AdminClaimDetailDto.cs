@@ -24,15 +24,28 @@ namespace FarmClaim.Application.Features.Admin.DTOs
         public string? DamageDescription { get; init; }
         public ClaimStatus Status { get; init; }
         public decimal? ApprovedAmount { get; init; }
+
+        // Review tracking
         public string? ReviewedBy { get; init; }
         public DateTime? ReviewedAt { get; init; }
         public string? RejectionReason { get; init; }
+
+        // NEW: Admin user who reviewed
+        public Guid? ReviewedByUserId { get; init; }
+        public string? ReviewedByName { get; init; }
+
+        // NEW: Payment tracking
+        public DateTime? PaidAt { get; init; }
+        public string? PaymentReference { get; init; }
+
+        // AI & Weather (unchanged)
         public string? WeatherSnapshot { get; init; }
         public string? AIAnalysisResult { get; init; }
+
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
 
-        // AI Recommendation
+        // AI Recommendation (unchanged)
         public string? AIRecommendation { get; init; }
         public decimal? SuggestedPayout { get; init; }
         public double? AIDamagePercentage { get; init; }

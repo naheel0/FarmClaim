@@ -71,7 +71,7 @@ namespace FarmClaim.API.Controllers
         [RequestSizeLimit(50 * 1024 * 1024)]
         public async Task<IActionResult> UploadImages(
             Guid claimId,
-            [FromForm] IFormFileCollection files,
+            [FromForm] IFormFileCollection images,
             [FromForm] string? cropType = null)
         {
             try
@@ -91,15 +91,15 @@ namespace FarmClaim.API.Controllers
                 if (claim.Status != ClaimStatus.Pending)
                     return BadRequest(new { error = $"Cannot upload images to claim with status: {claim.Status}" });
 
-                if (claim.Images.Count + files.Count > 10)
+                if (claim.Images.Count + images.Count > 10)
                     return BadRequest(new { error = "Maximum 10 images per claim" });
 
                 var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
                 var imageUrls = new List<string>();
 
-                for (int i = 0; i < files.Count; i++)
+                for (int i = 0; i < images.Count; i++)
                 {
-                    var file = files[i];
+                    var file = images[i];
 
                     if (file.Length == 0)
                         return BadRequest(new { error = $"File {file.FileName} is empty" });
@@ -186,7 +186,7 @@ namespace FarmClaim.API.Controllers
 
                 return StatusCode(StatusCodes.Status201Created, new
                 {
-                    message = $"{files.Count} image(s) uploaded successfully",
+                    message = $"{images.Count} image(s) uploaded successfully",
                     images = uploadedImages
                 });
             }

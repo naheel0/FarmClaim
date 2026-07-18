@@ -1,12 +1,16 @@
-﻿namespace FarmClaim.Application.Features.Admin.DTOs
+﻿using FarmClaim.Domain.Enums;
+
+namespace FarmClaim.Application.Features.Admin.DTOs
 {
     public record DashboardStatsDto
     {
+        // Claim stats (existing — unchanged)
         public int TotalClaims { get; init; }
         public int PendingClaims { get; init; }
         public int ApprovedClaims { get; init; }
         public int RejectedClaims { get; init; }
         public int UnderReviewClaims { get; init; }
+        public int PaidClaims { get; init; }
         public decimal TotalPayoutAmount { get; init; }
         public decimal PendingPayoutAmount { get; init; }
         public int ClaimsWithImages { get; init; }
@@ -14,6 +18,18 @@
         public int ClaimsWithWeatherData { get; init; }
         public decimal AverageProcessingDays { get; init; }
 
+        // NEW: Policy stats
+        public int TotalPolicies { get; init; }
+        public int PendingPolicies { get; init; }
+        public int ActivePolicies { get; init; }
+        public int RejectedPolicies { get; init; }
+        public int ExpiredPolicies { get; init; }
+
+        // NEW: User & Farm stats
+        public int TotalFarmers { get; init; }
+        public int TotalFarms { get; init; }
+
+        // Existing (unchanged)
         public List<IncidentTypeBreakdown> IncidentBreakdown { get; init; } = new();
         public List<MonthlyTrend> MonthlyTrends { get; init; } = new();
         public List<TopFarmDto> TopFarms { get; init; } = new();

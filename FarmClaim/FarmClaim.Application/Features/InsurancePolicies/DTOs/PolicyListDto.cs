@@ -1,4 +1,5 @@
 ﻿using System;
+using FarmClaim.Domain.Enums;
 
 namespace FarmClaim.Application.Features.InsurancePolicies.DTOs
 {
@@ -13,7 +14,12 @@ namespace FarmClaim.Application.Features.InsurancePolicies.DTOs
         public decimal SumInsured { get; init; }
         public DateTime StartDate { get; init; }
         public DateTime EndDate { get; init; }
-        public bool IsActive { get; init; }
+
+        // OLD: public bool IsActive { get; init; }
+        // NEW:
+        public PolicyStatus Status { get; init; }
+        public string? RejectionReason { get; init; }
+
         public string? FarmName { get; init; }
         public int ClaimsCount { get; init; }
     }
