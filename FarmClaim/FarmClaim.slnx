@@ -1,5 +1,5 @@
 <Solution>
-  <Project Path="armClaim.Domain/FarmClaim.Domain.csproj" />
+  <Project Path="FarmClaim.Domain/FarmClaim.Domain.csproj" />
   <Project Path="FarmClaim.API/FarmClaim.API.csproj" />
   <Project Path="FarmClaim.Application/FarmClaim.Application.csproj" />
   <Project Path="FarmClaim.Infrastructure/FarmClaim.Infrastructure.csproj" />

@@ -36,7 +36,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\armClaim.Domain\FarmClaim.Domain.csproj" />
+    <ProjectReference Include="..\FarmClaim.Domain\FarmClaim.Domain.csproj" />
   </ItemGroup>
 
 </Project>
