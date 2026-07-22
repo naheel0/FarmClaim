@@ -26,30 +26,70 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.CreatePolicy
         {
             _logger.LogInformation("Creating insurance policy for user: {UserId}", command.UserId);
 
-            // Validate farm belongs to user
             var farm = await _context.Farms
                 .FirstOrDefaultAsync(f => f.Id == command.Request.FarmId
-                    && f.UserId == command.UserId
-                    && !f.IsDeleted, ct);
+                                          && f.UserId == command.UserId
+                                          && !f.IsDeleted, ct);
 
             if (farm == null)
                 throw new NotFoundException(nameof(Farm), command.Request.FarmId);
 
-            // Check duplicate policy number
+            var plan = await _context.InsurancePlans
+                .FirstOrDefaultAsync(p => p.Id == command.Request.InsurancePlanId
+                                          && !p.IsDeleted
+                                          && p.IsActive, ct);
+
+            if (plan == null)
+                throw new NotFoundException(nameof(InsurancePlan), command.Request.InsurancePlanId);
+
+            if (!string.IsNullOrWhiteSpace(farm.CropType)
+                && !string.IsNullOrWhiteSpace(plan.CropType)
+                && !string.Equals(farm.CropType, plan.CropType, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ValidationException(new List<string>
+                {
+                    $"Plan crop type '{plan.CropType}' does not match farm crop type '{farm.CropType}'."
+                });
+            }
+
+            if (plan.MinAreaInHectares.HasValue && farm.AreaInHectares < plan.MinAreaInHectares.Value)
+                throw new ValidationException(new List<string>
+                {
+                    $"Farm area ({farm.AreaInHectares} ha) is below the plan minimum ({plan.MinAreaInHectares} ha)."
+                });
+
+            if (plan.MaxAreaInHectares.HasValue && farm.AreaInHectares > plan.MaxAreaInHectares.Value)
+                throw new ValidationException(new List<string>
+                {
+                    $"Farm area ({farm.AreaInHectares} ha) exceeds the plan maximum ({plan.MaxAreaInHectares} ha)."
+                });
+
+            var startDate = command.Request.StartDate;
+            var endDate = command.Request.EndDate ?? startDate.AddMonths(plan.PolicyDurationMonths);
+
+            if (endDate <= startDate)
+                throw new ValidationException(new List<string>
+                {
+                    "End date must be after start date"
+                });
+
+            var policyNumber = string.IsNullOrWhiteSpace(command.Request.PolicyNumber)
+                ? GeneratePolicyNumber()
+                : command.Request.PolicyNumber.Trim();
+
             var duplicatePolicy = await _context.InsurancePolicies
-                .AnyAsync(p => p.PolicyNumber == command.Request.PolicyNumber && !p.IsDeleted, ct);
+                .AnyAsync(p => p.PolicyNumber == policyNumber && !p.IsDeleted, ct);
 
             if (duplicatePolicy)
                 throw new ValidationException(new List<string>
                 {
-                    $"A policy with number '{command.Request.PolicyNumber}' already exists"
+                    $"A policy with number '{policyNumber}' already exists"
                 });
 
-            // Check for existing pending/active policy on same farm
             var existingPolicy = await _context.InsurancePolicies
                 .AnyAsync(p => p.FarmId == command.Request.FarmId
-                    && (p.Status == PolicyStatus.Pending || p.Status == PolicyStatus.Active)
-                    && !p.IsDeleted, ct);
+                               && (p.Status == PolicyStatus.Pending || p.Status == PolicyStatus.Active)
+                               && !p.IsDeleted, ct);
 
             if (existingPolicy)
                 throw new ValidationException(new List<string>
@@ -57,33 +97,33 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.CreatePolicy
                     "This farm already has a pending or active policy. Wait for approval or cancel it first."
                 });
 
-            // Validate dates
-            if (command.Request.EndDate <= command.Request.StartDate)
-                throw new ValidationException(new List<string>
-                {
-                    "End date must be after start date"
-                });
+            var area = farm.AreaInHectares;
+            var sumInsured = plan.SumInsuredPerHectare * area;
+            var coverageAmount = sumInsured * (plan.CoveragePercentage / 100m);
+            var premium = plan.PremiumRatePerHectare * area;
 
-            // Create policy as PENDING (Admin must approve)
             var policy = new InsurancePolicy
             {
                 FarmId = command.Request.FarmId,
-                PolicyNumber = command.Request.PolicyNumber.Trim(),
-                Provider = command.Request.Provider.Trim(),
-                CropType = command.Request.CropType.Trim(),
-                CoverageAmount = command.Request.CoverageAmount,
-                Premium = command.Request.Premium,
-                SumInsured = command.Request.SumInsured,
-                StartDate = command.Request.StartDate,
-                EndDate = command.Request.EndDate
-                // Status defaults to PolicyStatus.Pending — farmer cannot set it
+                InsurancePlanId = plan.Id,
+                PolicyNumber = policyNumber,
+                Provider = plan.Provider,
+                CropType = plan.CropType,
+                CoverageAmount = coverageAmount,
+                Premium = premium,
+                SumInsured = sumInsured,
+                StartDate = startDate,
+                EndDate = endDate
             };
 
             await _context.InsurancePolicies.AddAsync(policy, ct);
             await _context.SaveChangesAsync(ct);
 
-            _logger.LogInformation("Insurance policy created: {PolicyId}, Number: {PolicyNumber}, Status: Pending",
-                policy.Id, policy.PolicyNumber);
+            _logger.LogInformation(
+                "Policy created: {PolicyId}, Number: {PolicyNumber}, Plan: {PlanId}, " +
+                "Area: {Area} ha, Premium: {Premium}, SumInsured: {SumInsured}, Coverage: {Coverage}",
+                policy.Id, policy.PolicyNumber, plan.Id,
+                area, premium, sumInsured, coverageAmount);
 
             return new PolicyResponseDto
             {
@@ -104,6 +144,12 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.CreatePolicy
                 UpdatedAt = policy.UpdatedAt,
                 ClaimsCount = 0
             };
+        }
+
+        private static string GeneratePolicyNumber()
+        {
+            var tag = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
+            return $"POL-{DateTime.UtcNow:yyyy}-{tag}";
         }
     }
 }

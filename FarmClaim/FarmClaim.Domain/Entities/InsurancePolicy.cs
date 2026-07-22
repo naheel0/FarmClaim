@@ -1,4 +1,4 @@
-﻿using FarmClaim.Domain.Enums;
+using FarmClaim.Domain.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -12,6 +12,12 @@ namespace FarmClaim.Domain.Entities
 
         [ForeignKey(nameof(FarmId))]
         public virtual Farm Farm { get; set; } = null!;
+
+        [Required]
+        public Guid InsurancePlanId { get; set; }
+
+        [ForeignKey(nameof(InsurancePlanId))]
+        public virtual InsurancePlan InsurancePlan { get; set; } = null!;
 
         [Required]
         [MaxLength(200)]

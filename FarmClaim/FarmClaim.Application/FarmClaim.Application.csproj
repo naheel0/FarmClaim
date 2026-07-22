@@ -20,10 +20,12 @@
 
   <ItemGroup>
     <Compile Remove="Features\Auth\Commands\Register\RegisterUserCommandValidator.cs" />
+    <Compile Remove="Features\InsurancePlans\Commands\TogglePlanStatus\TogglePlanStatusCommandHandler.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="Features\Auth\Commands\Register\RegisterUserCommandValidator.cs" />
+    <None Include="Features\InsurancePlans\Commands\TogglePlanStatus\TogglePlanStatusCommandHandler.cs" />
   </ItemGroup>
 
   <ItemGroup>
