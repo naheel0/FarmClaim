@@ -13,11 +13,11 @@ namespace FarmClaim.Domain.Entities
         [ForeignKey(nameof(FarmId))]
         public virtual Farm Farm { get; set; } = null!;
 
-        [Required]
-        public Guid InsurancePlanId { get; set; }
+        // === InsurancePlan link (NULLABLE for backward compat with pre-existing policies) ===
+        public Guid? InsurancePlanId { get; set; }
 
         [ForeignKey(nameof(InsurancePlanId))]
-        public virtual InsurancePlan InsurancePlan { get; set; } = null!;
+        public virtual InsurancePlan? InsurancePlan { get; set; }
 
         [Required]
         [MaxLength(200)]
@@ -46,7 +46,6 @@ namespace FarmClaim.Domain.Entities
         [Required]
         public decimal SumInsured { get; set; }
 
-        // OLD: public bool IsActive { get; set; } = true;
         [Required]
         [MaxLength(20)]
         public PolicyStatus Status { get; set; } = PolicyStatus.Pending;
@@ -54,11 +53,13 @@ namespace FarmClaim.Domain.Entities
         // Approval tracking
         public DateTime? ApprovedAt { get; set; }
         public Guid? ApprovedByUserId { get; set; }
+
         [ForeignKey(nameof(ApprovedByUserId))]
         public virtual User? ApprovedByUser { get; set; }
 
         // Rejection tracking
         public DateTime? RejectedAt { get; set; }
+
         [MaxLength(1000)]
         public string? RejectionReason { get; set; }
 

@@ -1,9 +1,10 @@
-﻿using FarmClaim.Application.Common.Interfaces;
+﻿using FarmClaim.Application.Common.Exceptions;
+using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Auth.DTOs;
+using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-// Alias for namespace conflict
 using RefreshTokenEntity = FarmClaim.Domain.Entities.RefreshToken;
 
 namespace FarmClaim.Application.Features.Auth.Commands.RefreshToken
@@ -28,10 +29,11 @@ namespace FarmClaim.Application.Features.Auth.Commands.RefreshToken
         {
             _logger.LogInformation("Refreshing token from cookie...");
 
-            // Step 1: Find the refresh token entity directly (don't load User yet!)
             var existingToken = await _context.RefreshTokens
-                .Include(rt => rt.User) // Eager load User for later
-                .FirstOrDefaultAsync(rt => rt.Token == cmd.RefreshToken && !rt.IsRevoked && rt.ExpiresAt > DateTime.UtcNow, ct);
+                .Include(rt => rt.User)
+                .FirstOrDefaultAsync(rt => rt.Token == cmd.RefreshToken
+                                           && !rt.IsRevoked
+                                           && rt.ExpiresAt > DateTime.UtcNow, ct);
 
             if (existingToken?.User == null)
             {
@@ -41,12 +43,29 @@ namespace FarmClaim.Application.Features.Auth.Commands.RefreshToken
 
             var user = existingToken.User;
 
-            // Step 2: REVOKE old token FIRST (separate save operation)
+            // === NEW: Check user status (a blocked/suspended user's token can't refresh) ===
+            if (user.Status != UserStatus.Active)
+            {
+                _logger.LogWarning("Non-active user {UserId} (Status={Status}) tried token refresh",
+                    user.Id, user.Status);
+
+                // Revoke the token they tried to use, just to be safe
+                existingToken.IsRevoked = true;
+                existingToken.RevokedAt = DateTime.UtcNow;
+                existingToken.ReasonRevoked = $"User status is {user.Status}";
+                await _context.SaveChangesAsync(ct);
+
+                throw new ForbiddenException(
+                    $"Your account is {user.Status.ToString().ToLower()}. " +
+                    "Please contact support.");
+            }
+
+            // Step 2: REVOKE old token FIRST
             existingToken.IsRevoked = true;
             existingToken.RevokedAt = DateTime.UtcNow;
             existingToken.ReasonRevoked = "Token rotation during refresh";
 
-            await _context.SaveChangesAsync(ct); // ✅ Save #1: Only affects RefreshTokens table
+            await _context.SaveChangesAsync(ct);
 
             _logger.LogInformation("Old token revoked for user: {UserId}", user.Id);
 
@@ -54,7 +73,7 @@ namespace FarmClaim.Application.Features.Auth.Commands.RefreshToken
             var newAccessToken = _jwtService.GenerateAccessToken(user);
             var newRefreshTokenValue = _jwtService.GenerateRefreshToken();
 
-            // Step 4: Create NEW refresh token as SEPARATE entity (don't attach to User!)
+            // Step 4: Create NEW refresh token as SEPARATE entity
             var newRefreshTokenEntity = new RefreshTokenEntity
             {
                 UserId = user.Id,
@@ -63,10 +82,8 @@ namespace FarmClaim.Application.Features.Auth.Commands.RefreshToken
                 CreatedAt = DateTime.UtcNow
             };
 
-            // Add to DbSet directly (no navigation property modification)
             await _context.RefreshTokens.AddAsync(newRefreshTokenEntity, ct);
-
-            await _context.SaveChangesAsync(ct); // ✅ Save #2: Only adds new row to RefreshTokens table
+            await _context.SaveChangesAsync(ct);
 
             _logger.LogInformation("Token refreshed successfully for user: {UserId}", user.Id);
 

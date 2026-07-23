@@ -4,9 +4,11 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
+using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Auth.DTOs;
 using FarmClaim.Domain.Entities;
+using FarmClaim.Domain.Enums;
 using RefreshTokenEntity = FarmClaim.Domain.Entities.RefreshToken;
 
 namespace FarmClaim.Application.Features.Auth.Commands.Login
@@ -42,6 +44,24 @@ namespace FarmClaim.Application.Features.Auth.Commands.Login
 
             if (result == PasswordVerificationResult.Failed)
                 throw new UnauthorizedAccessException("Invalid email or password.");
+
+            // === NEW: Check user status ===
+            switch (user.Status)
+            {
+                case UserStatus.Suspended:
+                    _logger.LogWarning("Suspended user attempted login: {UserId}", user.Id);
+                    throw new ForbiddenException(
+                        "Your account has been suspended. " +
+                        $"Reason: {user.StatusChangeReason ?? "Not specified"}. " +
+                        "Please contact support.");
+
+                case UserStatus.Blocked:
+                    _logger.LogWarning("Blocked user attempted login: {UserId}", user.Id);
+                    throw new ForbiddenException(
+                        "Your account has been permanently blocked. " +
+                        $"Reason: {user.StatusChangeReason ?? "Not specified"}. " +
+                        "Please contact support for review.");
+            }
 
             user.LastLoginAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(ct);

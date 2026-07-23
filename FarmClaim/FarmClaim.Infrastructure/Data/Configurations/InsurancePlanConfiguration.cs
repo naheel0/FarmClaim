@@ -41,10 +41,11 @@ namespace FarmClaim.Infrastructure.Data.Configurations
             b.HasIndex(p => p.CropType);
             b.HasIndex(p => p.IsActive);
 
-            b.HasMany(p => p.Policies)
-                .WithOne(p => p.InsurancePlan!)
-                .HasForeignKey(p => p.InsurancePlanId)
-             .OnDelete(DeleteBehavior.SetNull);
+            // NOTE: The relationship to InsurancePolicy is configured in
+            // InsurancePolicyConfiguration.cs to ensure InsurancePlanId is
+            // treated as nullable (Guid?) with ON DELETE Restrict.
+            // Defining it here caused EF to mark the FK as NOT NULL,
+            // which conflicts with ON DELETE SET NULL.
         }
     }
 }

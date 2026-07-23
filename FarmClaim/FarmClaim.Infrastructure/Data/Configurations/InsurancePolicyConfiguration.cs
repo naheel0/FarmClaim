@@ -15,7 +15,7 @@ namespace FarmClaim.Infrastructure.Data.Configurations
 
             b.Property(p => p.PolicyNumber).IsRequired().HasMaxLength(50);
 
-            // NEW: Status instead of IsActive
+            // Status instead of IsActive
             b.Property(p => p.Status)
                 .IsRequired()
                 .HasConversion<string>()
@@ -24,19 +24,30 @@ namespace FarmClaim.Infrastructure.Data.Configurations
 
             b.Property(p => p.RejectionReason).HasMaxLength(1000);
 
-            // Existing FK
+            // Existing FK: Farm
             b.HasOne(p => p.Farm)
                 .WithMany(f => f.InsurancePolicies)
                 .HasForeignKey(p => p.FarmId);
 
-            // NEW: Admin who approved this policy
+            // Admin who approved this policy
             b.HasOne(p => p.ApprovedByUser)
                 .WithMany(u => u.ApprovedPolicies)
                 .HasForeignKey(p => p.ApprovedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // NEW: Index for filtering by status
             b.HasIndex(p => p.Status);
+
+            // === InsurancePlan relationship (nullable FK, soft-delete safe) ===
+            b.HasOne(p => p.InsurancePlan)
+                .WithMany(plan => plan.Policies)
+                .HasForeignKey(p => p.InsurancePlanId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.Property(p => p.InsurancePlanId)
+                .HasColumnType("uniqueidentifier")
+                .IsRequired(false);
+
+            b.HasIndex(p => p.InsurancePlanId);
         }
     }
 }
