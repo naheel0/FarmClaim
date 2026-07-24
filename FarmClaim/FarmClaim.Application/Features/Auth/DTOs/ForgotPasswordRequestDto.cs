@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace FarmClaim.Application.Features.Auth.DTOs
 {
-    internal class ForgotPasswordRequestDto
+    public class ForgotPasswordRequestDto
     {
+        [Required(ErrorMessage = "Email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        [MaxLength(256)]
+        public string Email { get; set; } = string.Empty;
     }
 }

@@ -12,6 +12,7 @@ namespace FarmClaim.Application.Common.Interfaces
         DbSet<InsurancePolicy> InsurancePolicies { get; set; }
         DbSet<Claim> Claims { get; set; }
         DbSet<ClaimImage> ClaimImages { get; set; }
+        DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }

@@ -1,12 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace FarmClaim.Application.Features.Auth.DTOs
+﻿namespace FarmClaim.Application.Features.Auth.DTOs
 {
-    internal class PasswordResetResponseDto
+    public record PasswordResetResponseDto
     {
+        public string Message { get; init; } = string.Empty;
+
+        /// <summary>
+        /// Only set on forgot-password response (for testing). 
+        /// Always null on reset-password response.
+        /// </summary>
+        public DateTime? ExpiresAt { get; init; }
     }
 }

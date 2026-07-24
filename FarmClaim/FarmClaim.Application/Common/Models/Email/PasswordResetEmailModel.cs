@@ -1,4 +1,4 @@
-﻿namespace FarmClaim.Infrastructure.Email.Models
+namespace FarmClaim.Application.Common.Models.Email
 {
     public class PasswordResetEmailModel
     {

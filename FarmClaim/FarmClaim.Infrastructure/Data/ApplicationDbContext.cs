@@ -16,6 +16,7 @@ namespace FarmClaim.Infrastructure.Data
         public DbSet<InsurancePolicy> InsurancePolicies { get; set; } = null!;
         public DbSet<FarmClaim.Domain.Entities.Claim> Claims { get; set; } = null!;
         public DbSet<ClaimImage> ClaimImages { get; set; } = null!;
+        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
