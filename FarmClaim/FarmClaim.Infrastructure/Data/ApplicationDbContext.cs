@@ -17,14 +17,19 @@ namespace FarmClaim.Infrastructure.Data
         public DbSet<FarmClaim.Domain.Entities.Claim> Claims { get; set; } = null!;
         public DbSet<ClaimImage> ClaimImages { get; set; } = null!;
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; } = null!;
-        public DbSet<EmailChangeToken> EmailChangeTokens { get; set; } = null!;
         public DbSet<EmailVerificationCode> EmailVerificationCodes { get; set; } = null!;
+        public DbSet<EmailChangeToken> EmailChangeTokens { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
+            // === Global Query Filters (Soft Delete) ===
+            // Only "core" entities have soft-delete filters.
+            // Token/audit entities (RefreshToken, PasswordResetToken, EmailVerificationCode,
+            // EmailChangeToken) intentionally have NO filter — they must remain queryable
+            // for cleanup jobs and audit trails even after a user is soft-deleted.
             modelBuilder.Entity<User>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<Farm>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<InsurancePlan>().HasQueryFilter(e => !e.IsDeleted);

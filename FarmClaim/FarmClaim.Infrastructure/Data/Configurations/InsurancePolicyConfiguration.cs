@@ -24,6 +24,11 @@ namespace FarmClaim.Infrastructure.Data.Configurations
 
             b.Property(p => p.RejectionReason).HasMaxLength(1000);
 
+            // === Decimal precision (fixes truncation warnings) ===
+            b.Property(p => p.CoverageAmount).HasColumnType("decimal(18, 2)");
+            b.Property(p => p.Premium).HasColumnType("decimal(18, 2)");
+            b.Property(p => p.SumInsured).HasColumnType("decimal(18, 2)");
+
             // Existing FK: Farm
             b.HasOne(p => p.Farm)
                 .WithMany(f => f.InsurancePolicies)

@@ -183,8 +183,11 @@ builder.Services.AddScoped<FarmClaim.Infrastructure.Jobs.ClaimBackgroundJobServi
 builder.Services.AddScoped<IClaimBackgroundJobService, FarmClaim.Infrastructure.Services.HangfireBackgroundJobService>();
 builder.Services.AddScoped<INotificationService, FarmClaim.API.Services.SignalRNotificationService>();
 
+// Task #4: Maintenance Jobs (auto-expire policies, cleanup tokens, expiry reminders)
+builder.Services.AddScoped<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>();
+
 // ============================================
-// EMAIL — Production setup (SendGrid + Hangfire + RazorLight)
+// EMAIL — Production setup (Hangfire + RazorLight)
 // ============================================
 builder.Services.Configure<FarmClaim.Infrastructure.Configuration.EmailSettings>(
     builder.Configuration.GetSection("Email"));
@@ -202,7 +205,7 @@ builder.Services.AddHttpClient("ElasticEmail", client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
-// Primary email sender — SmtpEmailService
+// Primary email sender — SmtpEmailService (using Elastic Email SMTP)
 builder.Services.AddSingleton<FarmClaim.Application.Common.Interfaces.IEmailService,
     FarmClaim.Infrastructure.Services.SmtpEmailService>();
 
@@ -354,6 +357,37 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($" Migration failed: {ex.Message}");
         throw;
     }
+}
+
+// ============================================
+// SCHEDULE RECURRING JOBS (Task #4)
+// ============================================
+using (var scope = app.Services.CreateScope())
+{
+    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+
+    // 1. Expire policies — daily at 1:00 AM UTC
+    recurringJobManager.AddOrUpdate(
+        "expire-policies-daily",
+        () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
+                                  .ExpirePoliciesAsync(),
+        Cron.Daily(1, 0));
+
+    // 2. Cleanup expired tokens — daily at 2:00 AM UTC
+    recurringJobManager.AddOrUpdate(
+        "cleanup-tokens-daily",
+        () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
+                                  .CleanupExpiredTokensAsync(),
+        Cron.Daily(2, 0));
+
+    // 3. Policy expiry reminders — daily at 9:00 AM UTC
+    recurringJobManager.AddOrUpdate(
+        "policy-expiry-reminder-daily",
+        () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
+                                  .SendPolicyExpiryRemindersAsync(),
+        Cron.Daily(9, 0));
+
+    Console.WriteLine("✅ Recurring jobs scheduled: expire-policies, cleanup-tokens, expiry-reminder");
 }
 
 Console.WriteLine(" FarmClaim API starting...");

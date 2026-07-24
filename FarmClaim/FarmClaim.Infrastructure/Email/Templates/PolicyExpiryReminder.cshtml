@@ -1,0 +1,42 @@
+﻿@using FarmClaim.Infrastructure.Jobs
+@model PolicyExpiryReminderModel
+@{
+    Layout = "_Layout.cshtml";
+}
+@section Title { Your Policy Expires in @Model.DaysLeft Days — FarmClaim }
+
+<h2 style="color:#f57c00;margin-top:0;">⏰ Policy Expiring Soon</h2>
+
+<p>Hello @Model.FarmerName,</p>
+
+<p>This is a friendly reminder that your crop insurance policy will expire in <strong>@Model.DaysLeft days</strong>.</p>
+
+<table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;">
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Policy Number</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.PolicyNumber</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Crop Type</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.CropType</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Expiry Date</td>
+        <td style="padding:10px;border:1px solid #eee;color:#d32f2f;font-weight:600;">
+            @Model.EndDate.ToString("MMM dd, yyyy")
+        </td>
+    </tr>
+</table>
+
+<p style="background-color:#fff3e0;padding:15px;border-radius:4px;border-left:4px solid #f57c00;font-size:13px;">
+    ⚠️ <strong>Important:</strong> If you don't renew before the expiry date, your farm will not be covered
+    for any crop damage after @Model.EndDate.ToString("MMM dd, yyyy").
+</p>
+
+<div style="text-align:center;margin:25px 0;">
+    <a href="@Model.RenewUrl"
+       style="background-color:#2e7d32;color:#ffffff;padding:12px 28px;
+              text-decoration:none;border-radius:4px;display:inline-block;font-weight:600;">
+        Renew Policy Now
+    </a>
+</div>

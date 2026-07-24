@@ -14,7 +14,10 @@ namespace FarmClaim.Infrastructure.Data.Configurations
             b.Property(c => c.Status).HasConversion<string>().HasMaxLength(30);
             b.Property(c => c.IncidentType).HasConversion<string>().HasMaxLength(50);
 
-            // Existing FKs (untouched)
+            // === Decimal precision (fixes truncation warning) ===
+            b.Property(c => c.ApprovedAmount).HasColumnType("decimal(18, 2)");
+
+            // Existing FKs
             b.HasOne(c => c.Policy)
                 .WithMany(p => p.Claims)
                 .HasForeignKey(c => c.PolicyId)
@@ -25,16 +28,16 @@ namespace FarmClaim.Infrastructure.Data.Configurations
                 .HasForeignKey(c => c.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // NEW: Admin who reviewed this claim
+            // Admin who reviewed this claim
             b.HasOne(c => c.ReviewedByUser)
                 .WithMany(u => u.ReviewedClaims)
                 .HasForeignKey(c => c.ReviewedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // NEW: Payment tracking
+            // Payment tracking
             b.Property(c => c.PaymentReference).HasMaxLength(100);
 
-            // Existing indexes (untouched)
+            // Indexes
             b.HasIndex(c => c.UserId);
             b.HasIndex(c => c.PolicyId);
             b.HasIndex(c => c.Status);
