@@ -1,0 +1,39 @@
+﻿@using FarmClaim.Infrastructure.Email.Models
+@model ClaimPaidEmailModel
+@{
+    Layout = "_Layout.cshtml";
+}
+@section Title { Payout Processed — FarmClaim }
+
+<h2 style="color:#1565c0;margin-top:0;">💰 Payout Processed!</h2>
+
+<p>Hello @Model.FarmerName,</p>
+
+<p>Good news! Your claim payout has been processed and is on its way to your bank account.</p>
+
+<table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;">
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Claim ID</td>
+        <td style="padding:10px;border:1px solid #eee;">#@Model.ClaimId.ToString().Substring(0, 8).ToUpper()</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Payout Amount</td>
+        <td style="padding:10px;border:1px solid #eee;font-size:18px;color:#1565c0;font-weight:700;">
+            ₹@Model.PayoutAmount.ToString("N2")
+        </td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Payment Date</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.PaidAt.ToString("MMM dd, yyyy HH:mm")</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Reference Number</td>
+        <td style="padding:10px;border:1px solid #eee;font-family:monospace;">@Model.PaymentReference</td>
+    </tr>
+</table>
+
+<p style="background-color:#e8f5e9;padding:15px;border-radius:4px;border-left:4px solid #2e7d32;font-size:13px;">
+    ⏱️ Please allow <strong>2-3 business days</strong> for the amount to reflect in your bank account.
+</p>
+
+<p>Thank you for trusting FarmClaim with your crop insurance needs.</p>

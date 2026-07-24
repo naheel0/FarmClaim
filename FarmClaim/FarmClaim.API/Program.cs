@@ -184,6 +184,34 @@ builder.Services.AddScoped<IClaimBackgroundJobService, FarmClaim.Infrastructure.
 builder.Services.AddScoped<INotificationService, FarmClaim.API.Services.SignalRNotificationService>();
 
 // ============================================
+// EMAIL — Production setup (SendGrid + Hangfire + RazorLight)
+// ============================================
+builder.Services.Configure<FarmClaim.Infrastructure.Configuration.EmailSettings>(
+    builder.Configuration.GetSection("Email"));
+
+builder.Services.AddSingleton<FarmClaim.Infrastructure.Email.Services.IEmailTemplateService,
+    FarmClaim.Infrastructure.Email.Services.EmailTemplateService>();
+
+builder.Services.AddSingleton<Polly.IAsyncPolicy>(
+    FarmClaim.Infrastructure.Email.Policies.EmailRetryPolicy.EmailPolicy);
+
+// Register HttpClient for Elastic Email API
+builder.Services.AddHttpClient("ElasticEmail", client =>
+{
+    client.BaseAddress = new Uri("https://api.elasticemail.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+// Primary email sender — Elastic Email API
+builder.Services.AddSingleton<FarmClaim.Application.Common.Interfaces.IEmailService,
+    FarmClaim.Infrastructure.Email.Services.ElasticEmailService>();
+
+builder.Services.AddSingleton<FarmClaim.Application.Common.Interfaces.IEmailQueueService,
+    FarmClaim.Infrastructure.Email.Services.EmailQueueService>();
+
+builder.Services.AddScoped<FarmClaim.Infrastructure.Email.Services.EmailJob>();
+
+// ============================================
 // CORS
 // ============================================
 builder.Services.AddCors(options =>

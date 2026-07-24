@@ -1,0 +1,52 @@
+﻿@using FarmClaim.Infrastructure.Email.Models
+@model PolicyApprovedEmailModel
+@{
+    Layout = "_Layout.cshtml";
+}
+@section Title { Policy Approved — FarmClaim }
+
+<h2 style="color:#2e7d32;margin-top:0;">✅ Your Policy is Approved!</h2>
+
+<p>Hello @Model.FarmerName,</p>
+
+<p>Great news! Your insurance policy has been approved and is now <strong>active</strong>.</p>
+
+<table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;">
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Policy Number</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.PolicyNumber</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Provider</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.Provider</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Crop Type</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.CropType</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Coverage Amount</td>
+        <td style="padding:10px;border:1px solid #eee;">₹@Model.CoverageAmount.ToString("N2")</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Sum Insured</td>
+        <td style="padding:10px;border:1px solid #eee;">₹@Model.SumInsured.ToString("N2")</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Valid Until</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.EndDate.ToString("MMM dd, yyyy")</td>
+    </tr>
+</table>
+
+<div style="text-align:center;margin:25px 0;">
+    <a href="@Model.DashboardUrl" 
+       style="background-color:#2e7d32;color:#ffffff;padding:12px 28px;
+              text-decoration:none;border-radius:4px;display:inline-block;font-weight:600;">
+        View Policy Details
+    </a>
+</div>
+
+<p style="background-color:#e8f5e9;padding:15px;border-radius:4px;border-left:4px solid #2e7d32;font-size:13px;">
+    💡 <strong>Tip:</strong> You can now file claims for any crop damage under this policy. 
+    Use the FarmClaim mobile app or web dashboard to upload photos — our AI will assess the damage automatically.
+</p>

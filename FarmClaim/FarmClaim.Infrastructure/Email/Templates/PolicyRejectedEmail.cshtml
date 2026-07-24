@@ -1,0 +1,42 @@
+﻿@using FarmClaim.Infrastructure.Email.Models
+@model PolicyRejectedEmailModel
+@{
+    Layout = "_Layout.cshtml";
+}
+@section Title { Policy Application Update — FarmClaim }
+
+<h2 style="color:#d32f2f;margin-top:0;">Policy Application Update</h2>
+
+<p>Hello @Model.FarmerName,</p>
+
+<p>We've reviewed your insurance policy application. Unfortunately, we're unable to approve it at this time.</p>
+
+<table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;">
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Policy Number</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.PolicyNumber</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Provider</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.Provider</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Crop Type</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.CropType</td>
+    </tr>
+</table>
+
+<p style="background-color:#ffebee;padding:15px;border-radius:4px;border-left:4px solid #d32f2f;">
+    <strong>Reason:</strong><br>
+    @Model.Reason
+</p>
+
+<p>You can submit a new application after addressing the above concern. If you believe this decision was made in error, please contact our support team.</p>
+
+<div style="text-align:center;margin:25px 0;">
+    <a href="mailto:support@farmclaim.com" 
+       style="background-color:#2e7d32;color:#ffffff;padding:12px 28px;
+              text-decoration:none;border-radius:4px;display:inline-block;font-weight:600;">
+        Contact Support
+    </a>
+</div>

@@ -1,0 +1,31 @@
+﻿@using FarmClaim.Infrastructure.Email.Models
+@model WelcomeEmailModel
+@{
+    Layout = "_Layout.cshtml";
+}
+@section Title { Welcome to FarmClaim }
+
+<h2 style="color:#2e7d32;margin-top:0;">Welcome, @Model.FirstName! 👋</h2>
+
+<p>Thank you for joining <strong>FarmClaim</strong> — your trusted partner for crop insurance and claim management.</p>
+
+<p>With your new account, you can:</p>
+<ul style="line-height:1.8;color:#555;">
+    <li>🌾 Register your farms and crops</li>
+    <li>📋 Apply for crop insurance policies</li>
+    <li>🌦️ File claims with AI-assisted damage assessment</li>
+    <li>💳 Track claim status and payouts in real-time</li>
+</ul>
+
+<div style="text-align:center;margin:30px 0;">
+    <a href="@Model.LoginUrl" 
+       style="background-color:#2e7d32;color:#ffffff;padding:12px 28px;
+              text-decoration:none;border-radius:4px;display:inline-block;font-weight:600;">
+        Get Started →
+    </a>
+</div>
+
+<p style="color:#666;font-size:14px;">
+    If you have any questions, our support team is here to help at 
+    <a href="mailto:support@farmclaim.com" style="color:#2e7d32;">support@farmclaim.com</a>.
+</p>

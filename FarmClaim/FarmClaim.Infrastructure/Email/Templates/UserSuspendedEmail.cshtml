@@ -1,0 +1,38 @@
+﻿@using FarmClaim.Infrastructure.Email.Models
+@model UserSuspendedEmailModel
+@{
+    Layout = "_Layout.cshtml";
+}
+@section Title { Account Suspended — FarmClaim }
+
+<h2 style="color:#f57c00;margin-top:0;">⚠️ Account Suspended</h2>
+
+<p>Hello @Model.UserName,</p>
+
+<p>Your FarmClaim account has been <strong>suspended</strong> by our administrative team.</p>
+
+<p style="background-color:#fff3e0;padding:15px;border-radius:4px;border-left:4px solid #f57c00;">
+    <strong>Reason:</strong><br>
+    @Model.Reason
+</p>
+
+<p><strong>What this means:</strong></p>
+<ul style="line-height:1.8;color:#555;">
+    <li>You cannot log in to your account</li>
+    <li>Your existing policies and claims remain intact</li>
+    <li>You cannot file new claims or create new policies</li>
+</ul>
+
+<p>To reactivate your account, please contact our support team:</p>
+
+<div style="text-align:center;margin:25px 0;">
+    <a href="mailto:support@farmclaim.com?subject=Account Suspension Appeal - @Model.UserEmail" 
+       style="background-color:#2e7d32;color:#ffffff;padding:12px 28px;
+              text-decoration:none;border-radius:4px;display:inline-block;font-weight:600;">
+        Contact Support
+    </a>
+</div>
+
+<p style="color:#999;font-size:12px;">
+    Suspended on @Model.SuspendedAt.ToString("MMM dd, yyyy") at @Model.SuspendedAt.ToString("HH:mm") UTC
+</p>
