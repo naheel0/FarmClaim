@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace FarmClaim.Application.Features.Auth.DTOs
+﻿namespace FarmClaim.Application.Features.Auth.DTOs
 {
-    internal class EmailChangeResponseDto
+    public record EmailChangeResponseDto
     {
+        public string Message { get; init; } = string.Empty;
+        public DateTime? ExpiresAt { get; init; }
     }
 }

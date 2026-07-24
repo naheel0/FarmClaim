@@ -1,4 +1,6 @@
 ﻿using FarmClaim.Application.Common.Exceptions;
+using FarmClaim.Application.Features.Auth.Commands.ChangeEmail;
+using FarmClaim.Application.Features.Auth.Commands.ConfirmEmailChange;
 using FarmClaim.Application.Features.Auth.Commands.ForgotPassword;
 using FarmClaim.Application.Features.Auth.Commands.Login;
 using FarmClaim.Application.Features.Auth.Commands.Logout;
@@ -169,6 +171,77 @@ namespace FarmClaim.API.Controllers
             {
                 _logger.LogError(ex, "Reset password failed for {Email}", request.Email);
                 return StatusCode(500, new { error = "An unexpected error occurred. Please try again." });
+            }
+        }
+        // ============================================
+        // CHANGE EMAIL — Request email change (authenticated)
+        // ============================================
+        [HttpPost("change-email")]
+        [Authorize]
+        [ProducesResponseType(typeof(EmailChangeResponseDto), StatusCodes.Status200OK)]
+        public async Task<IActionResult> ChangeEmail([FromBody] ChangeEmailRequestDto request)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!Guid.TryParse(userIdClaim, out var userId))
+                    return Unauthorized(new { error = "Invalid user identity." });
+
+                var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+                var command = new ChangeEmailCommand(userId, request, clientIp);
+                var result = await _mediator.Send(command);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (ForbiddenException ex)
+            {
+                return StatusCode(403, new { error = ex.Message });
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Change email failed");
+                return StatusCode(500, new { error = "An unexpected error occurred." });
+            }
+        }
+
+        // ============================================
+        // CONFIRM EMAIL CHANGE — Verify token and apply change (anonymous)
+        // ============================================
+        [HttpPost("confirm-email-change")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(EmailChangeResponseDto), StatusCodes.Status200OK)]
+        public async Task<IActionResult> ConfirmEmailChange([FromBody] ConfirmEmailChangeDto request)
+        {
+            try
+            {
+                var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+                var command = new ConfirmEmailChangeCommand(request, clientIp);
+                var result = await _mediator.Send(command);
+                return Ok(result);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Confirm email change failed");
+                return StatusCode(500, new { error = "An unexpected error occurred." });
             }
         }
 

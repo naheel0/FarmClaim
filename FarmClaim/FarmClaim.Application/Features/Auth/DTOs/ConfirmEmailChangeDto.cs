@@ -1,12 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace FarmClaim.Application.Features.Auth.DTOs
 {
-    internal class ConfirmEmailChangeDto
+    public class ConfirmEmailChangeDto
     {
+        [Required]
+        public string Token { get; set; } = string.Empty;
+
+        [Required]
+        [EmailAddress]
+        public string NewEmail { get; set; } = string.Empty;
     }
 }

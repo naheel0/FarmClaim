@@ -1,0 +1,42 @@
+﻿@using FarmClaim.Application.Features.Auth.Commands.ChangeEmail
+@model ChangeEmailTemplateModel
+@{
+    Layout = "_Layout.cshtml";
+    var confirmLink = $"{Model.FrontendBaseUrl}/confirm-email-change?email={Uri.EscapeDataString(Model.NewEmail)}&token={Uri.EscapeDataString(Model.Token)}";
+}
+@section Title { Confirm Your New Email — FarmClaim }
+
+<h2 style="color:#2e7d32;margin-top:0;">📩 Confirm Your New Email</h2>
+
+<p>Hello @Model.UserName,</p>
+
+<p>You requested to change your FarmClaim account email to <strong>@Model.NewEmail</strong>.</p>
+
+<p>To complete this change, please confirm by clicking the button below:</p>
+
+<div style="text-align:center;margin:30px 0;">
+    <a href="@confirmLink"
+       style="background-color:#2e7d32;color:#ffffff;padding:12px 28px;
+              text-decoration:none;border-radius:4px;display:inline-block;font-weight:600;">
+        Confirm Email Change
+    </a>
+</div>
+
+<p style="color:#666;font-size:13px;">
+    ⏱️ <strong>This link expires in 1 hour.</strong>
+</p>
+
+<p style="color:#666;font-size:13px;">
+    Or copy this link into your browser:
+</p>
+<p style="background-color:#f4f4f4;padding:12px;border-radius:4px;font-size:12px;
+          word-break:break-all;color:#2e7d32;">
+    @confirmLink
+</p>
+
+<hr style="border:none;border-top:1px solid #eee;margin:25px 0;">
+
+<p style="color:#999;font-size:12px;">
+    🔒 If you didn't request this email change, please ignore this email and consider changing your password.
+    Your account email will remain unchanged.
+</p>

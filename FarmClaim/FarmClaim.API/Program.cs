@@ -202,9 +202,9 @@ builder.Services.AddHttpClient("ElasticEmail", client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
-// Primary email sender — Elastic Email API
+// Primary email sender — SmtpEmailService
 builder.Services.AddSingleton<FarmClaim.Application.Common.Interfaces.IEmailService,
-    FarmClaim.Infrastructure.Email.Services.ElasticEmailService>();
+    FarmClaim.Infrastructure.Services.SmtpEmailService>();
 
 builder.Services.AddSingleton<FarmClaim.Application.Common.Interfaces.IEmailQueueService,
     FarmClaim.Infrastructure.Email.Services.EmailQueueService>();

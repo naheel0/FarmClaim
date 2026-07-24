@@ -1,12 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace FarmClaim.Application.Features.Auth.DTOs
 {
-    internal class ChangeEmailRequestDto
+    public class ChangeEmailRequestDto
     {
+        [Required(ErrorMessage = "New email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        [MaxLength(256)]
+        public string NewEmail { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Current password is required")]
+        public string CurrentPassword { get; set; } = string.Empty;
     }
 }
