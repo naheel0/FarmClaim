@@ -14,6 +14,7 @@ namespace FarmClaim.Application.Common.Interfaces
         DbSet<ClaimImage> ClaimImages { get; set; }
         DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
         DbSet<EmailChangeToken> EmailChangeTokens { get; set; }
+        DbSet<EmailVerificationCode> EmailVerificationCodes { get; set; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }

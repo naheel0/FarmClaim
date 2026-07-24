@@ -6,7 +6,9 @@ using FarmClaim.Application.Features.Auth.Commands.Login;
 using FarmClaim.Application.Features.Auth.Commands.Logout;
 using FarmClaim.Application.Features.Auth.Commands.RefreshToken;
 using FarmClaim.Application.Features.Auth.Commands.Register;
+using FarmClaim.Application.Features.Auth.Commands.ResendOtp;
 using FarmClaim.Application.Features.Auth.Commands.ResetPassword;
+using FarmClaim.Application.Features.Auth.Commands.VerifyEmail;
 using FarmClaim.Application.Features.Auth.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -29,44 +31,147 @@ namespace FarmClaim.API.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        // ============================================
+        // REGISTER — Create account (requires email verification)
+        // ============================================
         [HttpPost("register")]
         [AllowAnonymous]
-        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(RegisterResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
         {
-            var result = await _mediator.Send(new RegisterUserCommand(request));
-
-            SetRefreshTokenCookie(result.RefreshToken, 7);
-
-            return Ok(new
+            try
             {
-                AccessToken = result.AccessToken,
-                ExpiresIn = result.ExpiresIn,
-                User = result.User,
-                Message = "Registration successful."
-            });
+                var result = await _mediator.Send(new RegisterUserCommand(request));
+                // Don't set refresh token cookie — user must verify email first
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Registration failed for {Email}", request.Email);
+                return StatusCode(500, new { error = "An unexpected error occurred." });
+            }
         }
 
+        // ============================================
+        // VERIFY EMAIL — Submit OTP after registration
+        // ============================================
+        [HttpPost("verify-email")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(VerifyEmailResponseDto), StatusCodes.Status200OK)]
+        public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequestDto request)
+        {
+            try
+            {
+                var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+                var command = new VerifyEmailCommand(request, clientIp);
+                var result = await _mediator.Send(command);
+
+                // Set refresh token cookie on successful verification (auto-login)
+                if (!string.IsNullOrEmpty(result.RefreshToken))
+                {
+                    SetRefreshTokenCookie(result.RefreshToken, 7);
+                }
+
+                return Ok(result);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (ForbiddenException ex)
+            {
+                return StatusCode(403, new { error = ex.Message });
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Email verification failed for {Email}", request.Email);
+                return StatusCode(500, new { error = "An unexpected error occurred." });
+            }
+        }
+
+        // ============================================
+        // RESEND OTP — Request new verification code
+        // ============================================
+        [HttpPost("resend-otp")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(VerifyEmailResponseDto), StatusCodes.Status200OK)]
+        public async Task<IActionResult> ResendOtp([FromBody] ResendOtpRequestDto request)
+        {
+            try
+            {
+                var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+                var command = new ResendOtpCommand(request, clientIp);
+                var result = await _mediator.Send(command);
+                return Ok(result);
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Resend OTP failed for {Email}", request.Email);
+                return Ok(new VerifyEmailResponseDto
+                {
+                    Message = "If the email exists and is pending verification, a new OTP has been sent."
+                });
+            }
+        }
+
+        // ============================================
+        // LOGIN — Authenticate with email + password
+        // ============================================
         [HttpPost("login")]
         [AllowAnonymous]
         [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
         {
-            var result = await _mediator.Send(new LoginCommand(request));
-
-            SetRefreshTokenCookie(result.RefreshToken, 7);
-
-            return Ok(new
+            try
             {
-                AccessToken = result.AccessToken,
-                ExpiresIn = result.ExpiresIn,
-                User = result.User,
-                Message = "Login successful."
-            });
+                var result = await _mediator.Send(new LoginCommand(request));
+                SetRefreshTokenCookie(result.RefreshToken, 7);
+
+                return Ok(new
+                {
+                    AccessToken = result.AccessToken,
+                    ExpiresIn = result.ExpiresIn,
+                    User = result.User,
+                    Message = "Login successful."
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { error = ex.Message });
+            }
+            catch (ForbiddenException ex)
+            {
+                return StatusCode(403, new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Login failed for {Email}", request.Email);
+                return StatusCode(500, new { error = "An unexpected error occurred." });
+            }
         }
 
+        // ============================================
+        // REFRESH — Rotate tokens via cookie
+        // ============================================
         [HttpPost("refresh")]
         [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -84,7 +189,6 @@ namespace FarmClaim.API.Controllers
             try
             {
                 var result = await _mediator.Send(new RefreshTokenCommand(accessToken, refreshToken));
-
                 SetRefreshTokenCookie(result.RefreshToken, 7);
 
                 return Ok(new
@@ -99,8 +203,16 @@ namespace FarmClaim.API.Controllers
                 DeleteRefreshTokenCookie();
                 return Unauthorized(new { error = ex.Message });
             }
+            catch (ForbiddenException ex)
+            {
+                DeleteRefreshTokenCookie();
+                return StatusCode(403, new { error = ex.Message });
+            }
         }
 
+        // ============================================
+        // LOGOUT — Revoke refresh token
+        // ============================================
         [HttpPost("logout")]
         [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -173,6 +285,7 @@ namespace FarmClaim.API.Controllers
                 return StatusCode(500, new { error = "An unexpected error occurred. Please try again." });
             }
         }
+
         // ============================================
         // CHANGE EMAIL — Request email change (authenticated)
         // ============================================

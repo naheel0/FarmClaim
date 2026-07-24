@@ -1,14 +1,12 @@
-﻿using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Logging;
-using FarmClaim.Application.Common.Exceptions;
+﻿using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Auth.DTOs;
 using FarmClaim.Domain.Entities;
 using FarmClaim.Domain.Enums;
+using MediatR;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using RefreshTokenEntity = FarmClaim.Domain.Entities.RefreshToken;
 
 namespace FarmClaim.Application.Features.Auth.Commands.Login
@@ -45,9 +43,15 @@ namespace FarmClaim.Application.Features.Auth.Commands.Login
             if (result == PasswordVerificationResult.Failed)
                 throw new UnauthorizedAccessException("Invalid email or password.");
 
-            // === NEW: Check user status ===
+            // === Check user status ===
             switch (user.Status)
             {
+                case UserStatus.PendingVerification:
+                    _logger.LogWarning("Unverified user attempted login: {UserId}", user.Id);
+                    throw new ForbiddenException(
+                        "Your email is not verified yet. " +
+                        "Please check your inbox for the OTP, or call /api/v1/Auth/resend-otp to get a new one.");
+
                 case UserStatus.Suspended:
                     _logger.LogWarning("Suspended user attempted login: {UserId}", user.Id);
                     throw new ForbiddenException(

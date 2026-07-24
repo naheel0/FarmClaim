@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Infrastructure.Configuration;
@@ -74,7 +74,14 @@ namespace FarmClaim.Infrastructure.Services
                     await client.AuthenticateAsync(_settings.Username, _settings.Password, ct);
 
                 await client.SendAsync(message, ct);
-                await client.DisconnectAsync(true, ct);
+                try
+                {
+                    await client.DisconnectAsync(true, ct);
+                }
+                catch (Exception disconnectEx)
+                {
+                    _logger.LogWarning(disconnectEx, "SMTP disconnect failed, but email was sent successfully.");
+                }
 
                 _logger.LogInformation("📧 Email sent to {Recipients}. Subject: {Subject}",
                     string.Join(", ", toEmails), subject);

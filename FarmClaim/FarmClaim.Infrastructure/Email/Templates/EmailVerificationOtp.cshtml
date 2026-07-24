@@ -1,0 +1,31 @@
+﻿@using FarmClaim.Application.Features.Auth.Commands.VerifyEmail
+@model EmailVerificationOtpModel
+@{
+    Layout = "_Layout.cshtml";
+}
+@section Title { Verify Your Email — FarmClaim }
+
+<h2 style="color:#2e7d32;margin-top:0;">🔐 Verify Your Email</h2>
+
+<p>Hello @Model.UserName,</p>
+
+<p>Welcome to <strong>FarmClaim</strong>! Please use the following OTP to verify your email address:</p>
+
+<div style="text-align:center;margin:30px 0;">
+    <div style="display:inline-block;background-color:#2e7d32;color:#ffffff;
+                font-size:36px;font-weight:700;letter-spacing:12px;padding:20px 40px;
+                border-radius:8px;font-family:'Courier New',monospace;">
+        @Model.Otp
+    </div>
+</div>
+
+<p style="color:#666;font-size:13px;text-align:center;">
+    ⏱️ <strong>This code expires in @Model.ExpirationMinutes minutes.</strong>
+</p>
+
+<hr style="border:none;border-top:1px solid #eee;margin:25px 0;">
+
+<p style="color:#999;font-size:12px;">
+    🔒 If you didn't create an account with FarmClaim, you can safely ignore this email.
+    No action is required.
+</p>
