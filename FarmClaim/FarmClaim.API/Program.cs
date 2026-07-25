@@ -15,6 +15,7 @@ using Microsoft.OpenApi.Models;
 using Polly;
 using Polly.Extensions.Http;
 using System.Text;
+using System.Threading.RateLimiting;
 using FarmClaim.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +31,12 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IFileStorageService, FarmClaim.Infrastructure.Services.CloudinaryStorageService>();
+
+// ============================================
+// RATE LIMITING REGISTRATION (Task #5)
+// ============================================
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<RateLimitingPolicy>();
 
 // ============================================
 // EXTERNAL API SERVICES (with Polly resilience)
@@ -299,6 +306,31 @@ IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(string serviceName, int maxRetr
 }
 
 // ============================================
+// RATE LIMITING CONFIG (Task #5)
+// ============================================
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Use our custom partitioned policy (per-endpoint + per-IP/user)
+    options.AddPolicy<string, RateLimitingPolicy>("FarmClaimPolicy");
+
+    // Global fallback limiter (safety net for unpartitioned requests)
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"global:{httpContext.Request.Path}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 1000,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+});
+
+// ============================================
 // BUILD APP
 // ============================================
 builder.Services.AddSignalR();
@@ -327,6 +359,10 @@ app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCookiePolicy();
 app.UseCors("AllowFrontend");
+
+// === Rate Limiter must come AFTER UseRouting but BEFORE UseAuthentication ===
+app.UseRateLimiter();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
