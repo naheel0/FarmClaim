@@ -1,0 +1,65 @@
+﻿@using FarmClaim.Application.Features.Payments.Commands.VerifyPayment
+@model PaymentSuccessEmailModel
+@{
+    Layout = "_Layout.cshtml";
+}
+@section Title { Payment Successful — FarmClaim }
+
+<h2 style="color:#2e7d32;margin-top:0;">✅ Payment Successful!</h2>
+
+<p>Hello @Model.FarmerName,</p>
+
+<p>We've received your premium payment for the following insurance policy:</p>
+
+<table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;">
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Policy Number</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.PolicyNumber</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Provider</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.Provider</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Amount Paid</td>
+        <td style="padding:10px;border:1px solid #eee;font-size:18px;color:#2e7d32;font-weight:700;">
+            ₹@Model.AmountPaid.ToString("N2")
+        </td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Payment Method</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.PaymentMethod</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Receipt Number</td>
+        <td style="padding:10px;border:1px solid #eee;font-family:monospace;">@Model.ReceiptNumber</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Transaction ID</td>
+        <td style="padding:10px;border:1px solid #eee;font-family:monospace;font-size:12px;">@Model.RazorpayPaymentId</td>
+    </tr>
+    <tr>
+        <td style="padding:10px;background-color:#f9f9f9;border:1px solid #eee;font-weight:600;">Date</td>
+        <td style="padding:10px;border:1px solid #eee;">@Model.CapturedAt.ToString("MMM dd, yyyy HH:mm") UTC</td>
+    </tr>
+</table>
+
+<div style="text-align:center;margin:25px 0;">
+    <a href="@Model.DashboardUrl"
+       style="background-color:#2e7d32;color:#ffffff;padding:12px 28px;
+              text-decoration:none;border-radius:4px;display:inline-block;font-weight:600;">
+        View Policy Details
+    </a>
+</div>
+
+<p style="background-color:#e8f5e9;padding:15px;border-radius:4px;border-left:4px solid #2e7d32;font-size:13px;">
+    💡 <strong>Important:</strong> Your policy is now fully active. Please keep this receipt for your records.
+    You can file claims anytime during the policy period.
+</p>
+
+<hr style="border:none;border-top:1px solid #eee;margin:25px 0;">
+
+<p style="color:#999;font-size:12px;">
+    This is an automated message. If you didn't make this payment, please contact our support team immediately at
+    <a href="mailto:support@farmclaim.com" style="color:#2e7d32;">support@farmclaim.com</a>.
+</p>

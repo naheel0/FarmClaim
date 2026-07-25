@@ -19,6 +19,7 @@ namespace FarmClaim.Infrastructure.Data
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; } = null!;
         public DbSet<EmailVerificationCode> EmailVerificationCodes { get; set; } = null!;
         public DbSet<EmailChangeToken> EmailChangeTokens { get; set; } = null!;
+        public DbSet<Payment> Payments { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

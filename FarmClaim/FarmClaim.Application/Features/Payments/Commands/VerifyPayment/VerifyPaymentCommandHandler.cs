@@ -1,0 +1,145 @@
+﻿using FarmClaim.Application.Common.Exceptions;
+using FarmClaim.Application.Common.Interfaces;
+using FarmClaim.Application.Features.Payments.DTOs;
+using FarmClaim.Domain.Entities;
+using FarmClaim.Domain.Enums;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+
+namespace FarmClaim.Application.Features.Payments.Commands.VerifyPayment
+{
+    public class VerifyPaymentCommandHandler : IRequestHandler<VerifyPaymentCommand, VerifyPaymentResponseDto>
+    {
+        private readonly IApplicationDbContext _context;
+        private readonly IPaymentService _paymentService;
+        private readonly IEmailQueueService _emailQueue;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<VerifyPaymentCommandHandler> _logger;
+
+        public VerifyPaymentCommandHandler(
+            IApplicationDbContext context,
+            IPaymentService paymentService,
+            IEmailQueueService emailQueue,
+            IConfiguration configuration,
+            ILogger<VerifyPaymentCommandHandler> logger)
+        {
+            _context = context;
+            _paymentService = paymentService;
+            _emailQueue = emailQueue;
+            _configuration = configuration;
+            _logger = logger;
+        }
+
+        public async Task<VerifyPaymentResponseDto> Handle(VerifyPaymentCommand cmd, CancellationToken ct)
+        {
+            _logger.LogInformation("Verifying Razorpay payment: Order={OrderId}, Payment={PaymentId}",
+                cmd.Request.RazorpayOrderId, cmd.Request.RazorpayPaymentId);
+
+            var payment = await _context.Payments
+                .Include(p => p.Policy).ThenInclude(p => p!.Farm).ThenInclude(f => f!.User)
+                .FirstOrDefaultAsync(p => p.OrderId == cmd.Request.RazorpayOrderId && !p.IsDeleted, ct);
+
+            if (payment == null)
+                throw new NotFoundException("Payment order not found for OrderId: " + cmd.Request.RazorpayOrderId);
+
+            if (payment.UserId != cmd.UserId)
+                throw new ForbiddenException("You can only verify your own payments.");
+
+            if (payment.Status == PaymentStatus.Captured)
+                throw new ValidationException(new List<string>
+                {
+                    $"Payment already captured on {payment.CapturedAt:yyyy-MM-dd HH:mm} UTC."
+                });
+
+            var isValid = await _paymentService.VerifySignatureAsync(
+                cmd.Request.RazorpayOrderId,
+                cmd.Request.RazorpayPaymentId,
+                cmd.Request.RazorpaySignature);
+
+            if (!isValid)
+            {
+                payment.Status = PaymentStatus.Failed;
+                payment.FailureReason = "Signature verification failed";
+                payment.FailedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync(ct);
+
+                _logger.LogWarning("❌ Signature verification failed for Order {OrderId}", cmd.Request.RazorpayOrderId);
+                throw new ValidationException(new List<string> { "Payment signature verification failed. Possible tampering detected." });
+            }
+
+            PaymentDetailsDto? details = null;
+            try
+            {
+                details = await _paymentService.FetchPaymentDetailsAsync(cmd.Request.RazorpayPaymentId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not fetch payment details from Razorpay (non-fatal)");
+            }
+
+            payment.PaymentId = cmd.Request.RazorpayPaymentId;
+            payment.Signature = cmd.Request.RazorpaySignature;
+            payment.Status = PaymentStatus.Captured;
+            payment.CapturedAt = DateTime.UtcNow;
+
+            if (details != null)
+            {
+                payment.Method = details.Method;
+                payment.BankReference = details.BankReference;
+                payment.Fee = details.Fee;
+                payment.Tax = details.Tax;
+
+                payment.MethodDescription = !string.IsNullOrEmpty(details.CardLast4)
+                    ? $"Card ****{details.CardLast4} ({details.CardNetwork})"
+                    : !string.IsNullOrEmpty(details.Vpa)
+                        ? $"UPI: {details.Vpa}"
+                        : !string.IsNullOrEmpty(details.Bank)
+                            ? $"NetBanking: {details.Bank}"
+                            : !string.IsNullOrEmpty(details.Wallet)
+                                ? $"Wallet: {details.Wallet}"
+                                : details.Method;
+            }
+
+            await _context.SaveChangesAsync(ct);
+
+            _logger.LogInformation("✅ Payment captured: PaymentId={PaymentId}, Amount=₹{Amount}, Method={Method}",
+                payment.Id, payment.AmountInRupees, payment.Method);
+
+            var farmer = payment.Policy?.Farm?.User;
+            if (farmer != null)
+            {
+                var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "http://localhost:3000";
+
+                await _emailQueue.EnqueueEmailAsync(
+                    toEmail: farmer.Email,
+                    templateName: "PaymentSuccessEmail",
+                    model: new PaymentSuccessEmailModel
+                    {
+                        FarmerName = $"{farmer.FirstName} {farmer.LastName}",
+                        PolicyNumber = payment.Policy?.PolicyNumber ?? "",
+                        Provider = payment.Policy?.Provider ?? "",
+                        AmountPaid = payment.AmountInRupees,
+                        PaymentMethod = payment.MethodDescription ?? payment.Method ?? "Online",
+                        ReceiptNumber = payment.ReceiptNumber ?? "",
+                        RazorpayPaymentId = cmd.Request.RazorpayPaymentId,
+                        CapturedAt = payment.CapturedAt.Value,
+                        DashboardUrl = $"{frontendBaseUrl}/policies/{payment.PolicyId}"
+                    });
+            }
+
+            return new VerifyPaymentResponseDto
+            {
+                Success = true,
+                Message = "Payment verified successfully. Your policy is now active.",
+                PaymentId = payment.Id,
+                PolicyId = payment.PolicyId,
+                PolicyNumber = payment.Policy?.PolicyNumber,
+                AmountPaid = payment.AmountInRupees,
+                CapturedAt = payment.CapturedAt,
+                ReceiptNumber = payment.ReceiptNumber
+            };
+        }
+    }
+}

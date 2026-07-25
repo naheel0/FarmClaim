@@ -220,6 +220,14 @@ builder.Services.AddSingleton<FarmClaim.Application.Common.Interfaces.IEmailQueu
     FarmClaim.Infrastructure.Email.Services.EmailQueueService>();
 
 builder.Services.AddScoped<FarmClaim.Infrastructure.Email.Services.EmailJob>();
+// ============================================
+// RAZORPAY PAYMENT 
+// ============================================
+builder.Services.Configure<FarmClaim.Infrastructure.Configuration.RazorpaySettings>(
+    builder.Configuration.GetSection("Razorpay"));
+
+builder.Services.AddScoped<FarmClaim.Application.Common.Interfaces.IPaymentService,
+    FarmClaim.Infrastructure.Services.RazorpayPaymentService>();
 
 // ============================================
 // CORS
