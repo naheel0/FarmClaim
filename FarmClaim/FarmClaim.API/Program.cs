@@ -10,6 +10,8 @@ using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.CookiePolicy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Polly;
@@ -23,14 +25,26 @@ var builder = WebApplication.CreateBuilder(args);
 // ============================================
 // DATABASE
 // ============================================
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
+{
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
+        b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName));
+
+    // Register the audit interceptor (Task #7)
+    var auditInterceptor = sp.GetRequiredService<ISaveChangesInterceptor>();
+    options.AddInterceptors(auditInterceptor);
+});
 
 builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IFileStorageService, FarmClaim.Infrastructure.Services.CloudinaryStorageService>();
+
+// ============================================
+// AUDIT LOGGING (Task #7)
+// ============================================
+builder.Services.AddScoped<IAuditService, FarmClaim.Infrastructure.Data.Audit.AuditService>();
+builder.Services.AddSingleton<ISaveChangesInterceptor, FarmClaim.Infrastructure.Data.Audit.AuditSaveChangesInterceptor>();
 
 // ============================================
 // RATE LIMITING REGISTRATION (Task #5)
@@ -189,8 +203,6 @@ builder.Services.AddHangfireServer();
 builder.Services.AddScoped<FarmClaim.Infrastructure.Jobs.ClaimBackgroundJobService>();
 builder.Services.AddScoped<IClaimBackgroundJobService, FarmClaim.Infrastructure.Services.HangfireBackgroundJobService>();
 builder.Services.AddScoped<INotificationService, FarmClaim.API.Services.SignalRNotificationService>();
-
-// Task #4: Maintenance Jobs (auto-expire policies, cleanup tokens, expiry reminders)
 builder.Services.AddScoped<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>();
 
 // ============================================
@@ -205,14 +217,12 @@ builder.Services.AddSingleton<FarmClaim.Infrastructure.Email.Services.IEmailTemp
 builder.Services.AddSingleton<Polly.IAsyncPolicy>(
     FarmClaim.Infrastructure.Email.Policies.EmailRetryPolicy.EmailPolicy);
 
-// Register HttpClient for Elastic Email API
 builder.Services.AddHttpClient("ElasticEmail", client =>
 {
     client.BaseAddress = new Uri("https://api.elasticemail.com/");
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
-// Primary email sender — SmtpEmailService (using Elastic Email SMTP)
 builder.Services.AddSingleton<FarmClaim.Application.Common.Interfaces.IEmailService,
     FarmClaim.Infrastructure.Services.SmtpEmailService>();
 
@@ -220,8 +230,9 @@ builder.Services.AddSingleton<FarmClaim.Application.Common.Interfaces.IEmailQueu
     FarmClaim.Infrastructure.Email.Services.EmailQueueService>();
 
 builder.Services.AddScoped<FarmClaim.Infrastructure.Email.Services.EmailJob>();
+
 // ============================================
-// RAZORPAY PAYMENT 
+// RAZORPAY PAYMENT (Task #2)
 // ============================================
 builder.Services.Configure<FarmClaim.Infrastructure.Configuration.RazorpaySettings>(
     builder.Configuration.GetSection("Razorpay"));
@@ -319,11 +330,7 @@ IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(string serviceName, int maxRetr
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-
-    // Use our custom partitioned policy (per-endpoint + per-IP/user)
     options.AddPolicy<string, RateLimitingPolicy>("FarmClaimPolicy");
-
-    // Global fallback limiter (safety net for unpartitioned requests)
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
     {
         return RateLimitPartition.GetFixedWindowLimiter(
@@ -337,6 +344,18 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 });
+// ============================================
+// HEALTH CHECKS (Task #6)
+// ============================================
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<ApplicationDbContext>(
+        name: "Database",
+        tags: new[] { "db", "sql", "core" })
+    .AddHangfire(
+        setup: null,
+        name: "Hangfire",
+        tags: new[] { "jobs", "background" })
+    .AddCheck("Self", () => HealthCheckResult.Healthy("API is running"), tags: new[] { "self" });
 
 // ============================================
 // BUILD APP
@@ -367,10 +386,7 @@ app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCookiePolicy();
 app.UseCors("AllowFrontend");
-
-// === Rate Limiter must come AFTER UseRouting but BEFORE UseAuthentication ===
 app.UseRateLimiter();
-
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
@@ -410,21 +426,18 @@ using (var scope = app.Services.CreateScope())
 {
     var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
 
-    // 1. Expire policies — daily at 1:00 AM UTC
     recurringJobManager.AddOrUpdate(
         "expire-policies-daily",
         () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
                                   .ExpirePoliciesAsync(),
         Cron.Daily(1, 0));
 
-    // 2. Cleanup expired tokens — daily at 2:00 AM UTC
     recurringJobManager.AddOrUpdate(
         "cleanup-tokens-daily",
         () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
                                   .CleanupExpiredTokensAsync(),
         Cron.Daily(2, 0));
 
-    // 3. Policy expiry reminders — daily at 9:00 AM UTC
     recurringJobManager.AddOrUpdate(
         "policy-expiry-reminder-daily",
         () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
