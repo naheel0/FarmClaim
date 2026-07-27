@@ -7,6 +7,12 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace FarmClaim.Infrastructure.Data.Audit
 {
+    /// <summary>
+    /// EF Core interceptor that automatically captures all entity changes
+    /// (Insert/Update/Delete) and writes them to AuditLogs table.
+    /// 
+    /// This runs EVERY time SaveChangesAsync is called — no need to modify handlers.
+    /// </summary>
     public class AuditSaveChangesInterceptor : SaveChangesInterceptor
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -24,13 +30,23 @@ namespace FarmClaim.Infrastructure.Data.Audit
             var dbContext = eventData.Context;
             if (dbContext == null) return base.SavingChangesAsync(eventData, result, cancellationToken);
 
+            var httpContext = _httpContextAccessor.HttpContext;
             var (userId, userEmail, userRole) = ExtractUserInfo();
-            var ip = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
-            var userAgent = _httpContextAccessor.HttpContext?.Request?.Headers.UserAgent.ToString();
+            var ip = httpContext?.Connection?.RemoteIpAddress?.ToString();
+            var userAgent = httpContext?.Request?.Headers.UserAgent.ToString();
+
+            // ✅ NEW: Extract HTTP context info for audit trail
+            var correlationId = httpContext?.TraceIdentifier
+                                ?? httpContext?.Request?.Headers["X-Correlation-ID"].FirstOrDefault();
+            var httpMethod = httpContext?.Request?.Method;
+            var httpPath = httpContext?.Request?.Path.Value;
 
             foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
             {
+                // Skip AuditLog itself (prevent infinite recursion)
                 if (entry.Entity.GetType() == typeof(AuditLog)) continue;
+
+                // Skip entities that don't inherit from BaseEntity (audit only our core entities)
                 if (entry.Entity is not BaseEntity) continue;
 
                 var entityType = entry.Entity.GetType().Name;
@@ -38,24 +54,30 @@ namespace FarmClaim.Infrastructure.Data.Audit
                 switch (entry.State)
                 {
                     case EntityState.Added:
-                        AddAuditLog(dbContext, entry, "entity.created", entityType, userId, userEmail, userRole, ip, userAgent,
+                        AddAuditLog(dbContext, entry, "entity.created", entityType,
+                            userId, userEmail, userRole, ip, userAgent,
                             oldValues: null,
                             newValues: SerializeEntry(entry, isOld: false),
-                            changedColumns: null);
+                            changedColumns: null,
+                            correlationId, httpMethod, httpPath);
                         break;
 
                     case EntityState.Modified:
-                        AddAuditLog(dbContext, entry, "entity.updated", entityType, userId, userEmail, userRole, ip, userAgent,
+                        AddAuditLog(dbContext, entry, "entity.updated", entityType,
+                            userId, userEmail, userRole, ip, userAgent,
                             oldValues: SerializeModifiedOld(entry),
                             newValues: SerializeModifiedNew(entry),
-                            changedColumns: string.Join(",", GetModifiedProperties(entry)));
+                            changedColumns: string.Join(",", GetModifiedProperties(entry)),
+                            correlationId, httpMethod, httpPath);
                         break;
 
                     case EntityState.Deleted:
-                        AddAuditLog(dbContext, entry, "entity.deleted", entityType, userId, userEmail, userRole, ip, userAgent,
+                        AddAuditLog(dbContext, entry, "entity.deleted", entityType,
+                            userId, userEmail, userRole, ip, userAgent,
                             oldValues: SerializeEntry(entry, isOld: true),
                             newValues: null,
-                            changedColumns: null);
+                            changedColumns: null,
+                            correlationId, httpMethod, httpPath);
                         break;
                 }
             }
@@ -70,7 +92,8 @@ namespace FarmClaim.Infrastructure.Data.Audit
             string entityType,
             Guid? userId, string? userEmail, string? role,
             string? ip, string? userAgent,
-            string? oldValues, string? newValues, string? changedColumns)
+            string? oldValues, string? newValues, string? changedColumns,
+            string? correlationId, string? httpMethod, string? httpPath)
         {
             var entityId = entry.Property("Id")?.CurrentValue?.ToString();
 
@@ -87,7 +110,11 @@ namespace FarmClaim.Infrastructure.Data.Audit
                 ChangedColumns = changedColumns,
                 IpAddress = ip,
                 UserAgent = userAgent,
-                Timestamp = DateTime.UtcNow
+                Timestamp = DateTime.UtcNow,
+                // ✅ NEW: HTTP context tracking
+                CorrelationId = correlationId,
+                HttpMethod = httpMethod,
+                HttpPath = httpPath
             };
 
             dbContext.Set<AuditLog>().Add(auditLog);

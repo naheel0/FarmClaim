@@ -10,9 +10,6 @@ namespace FarmClaim.Domain.Entities
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public Guid Id { get; set; } = Guid.NewGuid();
 
-        /// <summary>
-        /// Who performed the action (null for anonymous/system actions)
-        /// </summary>
         public Guid? UserId { get; set; }
 
         [MaxLength(256)]
@@ -21,41 +18,23 @@ namespace FarmClaim.Domain.Entities
         [MaxLength(50)]
         public string? UserRole { get; set; }
 
-        /// <summary>
-        /// What happened: "policy.approved", "user.suspended", "payment.captured", "entity.updated"
-        /// </summary>
         [Required]
         [MaxLength(100)]
         public string Action { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Entity type affected: "InsurancePolicy", "User", "Payment", "Claim"
-        /// </summary>
         [Required]
         [MaxLength(100)]
         public string EntityType { get; set; } = string.Empty;
 
-        /// <summary>
-        /// ID of the affected entity (string for flexibility)
-        /// </summary>
         [MaxLength(100)]
         public string? EntityId { get; set; }
 
-        /// <summary>
-        /// JSON snapshot of values before change (null for creates)
-        /// </summary>
         [Column(TypeName = "nvarchar(max)")]
         public string? OldValues { get; set; }
 
-        /// <summary>
-        /// JSON snapshot of values after change (null for deletes)
-        /// </summary>
         [Column(TypeName = "nvarchar(max)")]
         public string? NewValues { get; set; }
 
-        /// <summary>
-        /// Comma-separated list of changed property names
-        /// </summary>
         [MaxLength(2000)]
         public string? ChangedColumns { get; set; }
 
@@ -65,13 +44,24 @@ namespace FarmClaim.Domain.Entities
         [MaxLength(500)]
         public string? UserAgent { get; set; }
 
-        /// <summary>
-        /// Optional human-readable description
-        /// </summary>
         [MaxLength(1000)]
         public string? Description { get; set; }
 
         [Required]
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+        // === NEW FIELDS ===
+
+        /// <summary>Groups all audit entries from a single HTTP request.</summary>
+        [MaxLength(100)]
+        public string? CorrelationId { get; set; }
+
+        /// <summary>HTTP method: GET, POST, PUT, PATCH, DELETE</summary>
+        [MaxLength(10)]
+        public string? HttpMethod { get; set; }
+
+        /// <summary>HTTP path: /api/v1/Admin/Users/123/suspend</summary>
+        [MaxLength(500)]
+        public string? HttpPath { get; set; }
     }
 }

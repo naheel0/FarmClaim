@@ -23,8 +23,5 @@ namespace FarmClaim.Application.Features.Auth.DTOs
 
         [Phone]
         public string? PhoneNumber { get; init; }
-
-        [Required(ErrorMessage = "Role is required")]
-        public UserRole Role { get; init; }
     }
 }

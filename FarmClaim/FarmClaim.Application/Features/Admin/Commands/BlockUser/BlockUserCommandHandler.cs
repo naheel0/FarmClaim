@@ -1,5 +1,6 @@
 ﻿using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Common.Interfaces;
+using FarmClaim.Application.Features.Admin.Commands.SuspendUser;
 using FarmClaim.Application.Features.Admin.DTOs;
 using FarmClaim.Domain.Entities;
 using FarmClaim.Domain.Enums;
@@ -12,20 +13,22 @@ namespace FarmClaim.Application.Features.Admin.Commands.BlockUser
     public class BlockUserCommandHandler : IRequestHandler<BlockUserCommand, UserActionResponseDto>
     {
         private readonly IApplicationDbContext _context;
+        private readonly IEmailQueueService _emailQueue;
         private readonly ILogger<BlockUserCommandHandler> _logger;
 
         public BlockUserCommandHandler(
             IApplicationDbContext context,
+            IEmailQueueService emailQueue,
             ILogger<BlockUserCommandHandler> logger)
         {
             _context = context;
+            _emailQueue = emailQueue;
             _logger = logger;
         }
 
         public async Task<UserActionResponseDto> Handle(BlockUserCommand cmd, CancellationToken ct)
         {
-            _logger.LogWarning("Admin {AdminId} BLOCKING user {UserId} (permanent)",
-                cmd.AdminUserId, cmd.TargetUserId);
+            _logger.LogWarning("Admin {AdminId} BLOCKING user {UserId}", cmd.AdminUserId, cmd.TargetUserId);
 
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Id == cmd.TargetUserId && !u.IsDeleted, ct);
@@ -33,7 +36,6 @@ namespace FarmClaim.Application.Features.Admin.Commands.BlockUser
             if (user == null)
                 throw new NotFoundException(nameof(User), cmd.TargetUserId);
 
-            // Self-block check
             if (user.Id == cmd.AdminUserId)
                 throw new ForbiddenException("Cannot block your own account.");
 
@@ -50,10 +52,20 @@ namespace FarmClaim.Application.Features.Admin.Commands.BlockUser
             user.StatusChangedByUserId = cmd.AdminUserId;
             user.StatusChangeReason = cmd.Request.Reason.Trim();
 
-            // Revoke all active refresh tokens immediately
             await RevokeAllUserRefreshTokensAsync(user.Id, cmd.AdminUserId, "User blocked by admin", ct);
-
             await _context.SaveChangesAsync(ct);
+
+            // ✅ NEW: Send block email (reuse suspended template with blocked messaging)
+            await _emailQueue.EnqueueEmailAsync(
+                toEmail: user.Email,
+                templateName: "UserSuspendedEmail", // You can create a separate UserBlockedEmail template if preferred
+                model: new UserSuspendedEmailModel
+                {
+                    UserName = $"{user.FirstName} {user.LastName}",
+                    UserEmail = user.Email,
+                    Reason = cmd.Request.Reason,
+                    SuspendedAt = DateTime.UtcNow
+                });
 
             _logger.LogWarning("User {UserId} PERMANENTLY BLOCKED by Admin {AdminId}. Reason: {Reason}",
                 user.Id, cmd.AdminUserId, cmd.Request.Reason);
@@ -70,15 +82,12 @@ namespace FarmClaim.Application.Features.Admin.Commands.BlockUser
                 NewStatus = user.Status,
                 StatusChangedAt = user.StatusChangedAt,
                 StatusChangedByUserId = user.StatusChangedByUserId,
-                StatusChangedByName = admin != null
-                    ? $"{admin.FirstName} {admin.LastName}"
-                    : null,
+                StatusChangedByName = admin != null ? $"{admin.FirstName} {admin.LastName}" : null,
                 Reason = user.StatusChangeReason
             };
         }
 
-        private async Task RevokeAllUserRefreshTokensAsync(
-            Guid userId, Guid adminId, string reason, CancellationToken ct)
+        private async Task RevokeAllUserRefreshTokensAsync(Guid userId, Guid adminId, string reason, CancellationToken ct)
         {
             var tokens = await _context.RefreshTokens
                 .Where(t => t.UserId == userId && !t.IsRevoked)

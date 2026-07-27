@@ -23,7 +23,7 @@ using FarmClaim.API.Hubs;
 var builder = WebApplication.CreateBuilder(args);
 
 // ============================================
-// DATABASE
+// DATABASE (with Audit Interceptor)
 // ============================================
 builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
 {
@@ -106,11 +106,15 @@ else
 }
 
 // ============================================
-// AUTHENTICATION (JWT)
+// AUTHENTICATION (JWT) - reads secret from env var OR config
 // ============================================
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"]
-    ?? throw new InvalidOperationException("JWT Secret not configured"));
+
+// ✅ FIX #7: JWT secret from env var (production-safe)
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
+                ?? jwtSettings["Secret"]
+                ?? throw new InvalidOperationException("JWT Secret not configured");
+var secretKey = Encoding.UTF8.GetBytes(jwtSecret);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -241,16 +245,16 @@ builder.Services.AddScoped<FarmClaim.Application.Common.Interfaces.IPaymentServi
     FarmClaim.Infrastructure.Services.RazorpayPaymentService>();
 
 // ============================================
-// CORS
+// CORS — Configurable via appsettings (Fix #7)
 // ============================================
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "http://127.0.0.1:3000")
+        var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
+            ?? new[] { "http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000" };
+
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -344,6 +348,7 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 });
+
 // ============================================
 // HEALTH CHECKS (Task #6)
 // ============================================
@@ -352,7 +357,10 @@ builder.Services.AddHealthChecks()
         name: "Database",
         tags: new[] { "db", "sql", "core" })
     .AddHangfire(
-        setup: null,
+        setup: options =>
+        {
+            // Options can be left empty — uses defaults
+        },
         name: "Hangfire",
         tags: new[] { "jobs", "background" })
     .AddCheck("Self", () => HealthCheckResult.Healthy("API is running"), tags: new[] { "self" });
@@ -375,13 +383,21 @@ if (app.Environment.IsDevelopment())
         c.RoutePrefix = "swagger";
     });
 }
+else
+{
+    // ✅ FIX #7: HSTS for production
+    app.UseHsts();
+}
 
 app.UseExceptionHandling();
+
+// ✅ FIX #4: Hangfire dashboard secured (Admin only)
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
-    Authorization = new[] { new AllowAllDashboardAuthorization() },
+    Authorization = new[] { new AdminOnlyHangfireAuthorization() },
     DashboardTitle = "FarmClaim Jobs"
 });
+
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCookiePolicy();
@@ -405,55 +421,57 @@ using (var scope = app.Services.CreateScope())
         if (pendingMigrations.Any())
         {
             await db.Database.MigrateAsync();
-            Console.WriteLine(" Database migrations applied successfully!");
+            Console.WriteLine("✅ Database migrations applied successfully!");
         }
         else
         {
-            Console.WriteLine(" Database is up to date.");
+            Console.WriteLine("✅ Database is up to date.");
         }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($" Migration failed: {ex.Message}");
+        Console.WriteLine($"❌ Migration failed: {ex.Message}");
         throw;
     }
 }
 
 // ============================================
-// SCHEDULE RECURRING JOBS (Task #4)
+// SCHEDULE RECURRING JOBS (Task #4 + Fix #5)
 // ============================================
 using (var scope = app.Services.CreateScope())
 {
     var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
 
+    // 1. Expire policies — daily at 1:00 AM UTC
     recurringJobManager.AddOrUpdate(
         "expire-policies-daily",
         () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
                                   .ExpirePoliciesAsync(),
         Cron.Daily(1, 0));
 
+    // 2. Cleanup expired tokens — daily at 2:00 AM UTC
     recurringJobManager.AddOrUpdate(
         "cleanup-tokens-daily",
         () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
                                   .CleanupExpiredTokensAsync(),
         Cron.Daily(2, 0));
 
+    // 3. Policy expiry reminders — daily at 9:00 AM UTC
     recurringJobManager.AddOrUpdate(
         "policy-expiry-reminder-daily",
         () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
                                   .SendPolicyExpiryRemindersAsync(),
         Cron.Daily(9, 0));
 
-    Console.WriteLine("✅ Recurring jobs scheduled: expire-policies, cleanup-tokens, expiry-reminder");
+    // 4. ✅ FIX #5: Cancel stale pending policies — weekly Sunday at 3:00 AM UTC
+    recurringJobManager.AddOrUpdate(
+        "cancel-stale-policies-weekly",
+        () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
+                                  .CancelStalePendingPoliciesAsync(),
+        Cron.Weekly(DayOfWeek.Sunday, 3, 0));
+
+    Console.WriteLine("✅ Recurring jobs scheduled: expire-policies, cleanup-tokens, expiry-reminder, cancel-stale-policies");
 }
 
-Console.WriteLine(" FarmClaim API starting...");
+Console.WriteLine("🚀 FarmClaim API starting...");
 await app.RunAsync();
-
-// ============================================
-// TYPE DECLARATIONS (must be after all statements)
-// ============================================
-public class AllowAllDashboardAuthorization : IDashboardAuthorizationFilter
-{
-    public bool Authorize(DashboardContext context) => true;
-}

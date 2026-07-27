@@ -47,7 +47,7 @@ namespace FarmClaim.Application.Features.Auth.Commands.Register
                 FirstName = request.Request.FirstName.Trim(),
                 LastName = request.Request.LastName.Trim(),
                 PhoneNumber = request.Request.PhoneNumber?.Trim(),
-                Role = request.Request.Role,
+                Role = UserRole.Farmer,
                 Status = UserStatus.PendingVerification   // ← NEW: requires OTP verification
             };
 
