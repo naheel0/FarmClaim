@@ -63,7 +63,7 @@ namespace FarmClaim.Application.Features.Farms.Commands.UpdateFarm
                 hasChanges = true;
             }
 
-            // ✅ FIXED: Now updates location fields
+            // FIXED: Now updates location fields
             if (command.Request.Latitude.HasValue)
             {
                 farm.Latitude = command.Request.Latitude.Value;

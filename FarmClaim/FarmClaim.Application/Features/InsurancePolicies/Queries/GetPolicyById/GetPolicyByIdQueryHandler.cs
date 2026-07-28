@@ -25,13 +25,13 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Queries.GetPolicyById
         {
             _logger.LogInformation("Getting policy {PolicyId} for user {UserId}", request.PolicyId, request.UserId);
 
-            // ✅ FIXED: Now checks ownership through farm
+            // FIXED: Now checks ownership through farm
             var policy = await _context.InsurancePolicies
                 .AsNoTracking()
                 .Include(p => p.Farm)
                 .Include(p => p.Claims)
                 .FirstOrDefaultAsync(p => p.Id == request.PolicyId
-                    && p.Farm!.UserId == request.UserId // ✅ FIXED: Ownership check added
+                    && p.Farm!.UserId == request.UserId // FIXED: Ownership check added
                     && !p.IsDeleted, ct);
 
             if (policy == null)

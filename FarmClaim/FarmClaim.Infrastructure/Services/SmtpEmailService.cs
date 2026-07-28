@@ -45,7 +45,7 @@ namespace FarmClaim.Infrastructure.Services
             if (_settings.DummyMode)
             {
                 _logger.LogInformation(
-                    "📧 [DUMMY EMAIL] To: {Recipients} | Subject: {Subject}\nBody: {Body}",
+                    "[DUMMY EMAIL] To: {Recipients} | Subject: {Subject}\nBody: {Body}",
                     string.Join(", ", toEmails), subject, htmlBody);
                 return;
             }
@@ -83,13 +83,13 @@ namespace FarmClaim.Infrastructure.Services
                     _logger.LogWarning(disconnectEx, "SMTP disconnect failed, but email was sent successfully.");
                 }
 
-                _logger.LogInformation("📧 Email sent to {Recipients}. Subject: {Subject}",
+                _logger.LogInformation("Email sent to {Recipients}. Subject: {Subject}",
                     string.Join(", ", toEmails), subject);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "❌ Failed to send email to {Recipients}. Subject: {Subject}",
+                    "Failed to send email to {Recipients}. Subject: {Subject}",
                     string.Join(", ", toEmails), subject);
                 throw;
             }

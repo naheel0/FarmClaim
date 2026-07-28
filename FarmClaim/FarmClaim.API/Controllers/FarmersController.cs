@@ -3,7 +3,7 @@ using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Features.Farmers.Commands.UpdateProfile;
 using FarmClaim.Application.Features.Farmers.DTOs;
 using FarmClaim.Application.Features.Farmers.Queries.GetCurrentUserProfile;
-using FarmClaim.Application.Features.Farmers.Queries.GetAllFarmers; // ✅ ADDED
+using FarmClaim.Application.Features.Farmers.Queries.GetAllFarmers;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -95,7 +95,7 @@ namespace FarmClaim.API.Controllers
             }
         }
 
-        // ✅ FIXED: Now actually implemented
+        // FIXED: Now actually implemented
         [HttpGet]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(PagedResult<FarmerListDto>), StatusCodes.Status200OK)]

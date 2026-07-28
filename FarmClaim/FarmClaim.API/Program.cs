@@ -112,7 +112,7 @@ else
 // ============================================
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 
-// ✅ FIX #7: JWT secret from env var (production-safe)
+// FIX #7: JWT secret from env var (production-safe)
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
                 ?? jwtSettings["Secret"]
                 ?? throw new InvalidOperationException("JWT Secret not configured");
@@ -387,7 +387,7 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    // ✅ FIX #7: HSTS for production
+    // FIX #7: HSTS for production
     app.UseHsts();
 }
 
@@ -400,7 +400,7 @@ app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
 
-// ✅ FIX: Hangfire dashboard AFTER UseAuthorization (requires auth to work)
+// FIX: Hangfire dashboard AFTER UseAuthorization (requires auth to work)
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     Authorization = new[] { new AdminOnlyHangfireAuthorization() },
@@ -463,5 +463,5 @@ RecurringJob.AddOrUpdate<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>(
 
 Console.WriteLine("Recurring jobs scheduled: expire-policies, cleanup-tokens, expiry-reminder, cancel-stale-policies");
 
-Console.WriteLine("🚀 FarmClaim API starting...");
+Console.WriteLine("FarmClaim API starting...");
 await app.RunAsync();

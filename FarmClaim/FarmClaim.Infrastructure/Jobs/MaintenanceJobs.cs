@@ -43,7 +43,7 @@ namespace FarmClaim.Infrastructure.Jobs
         [Hangfire.AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
         public async Task ExpirePoliciesAsync()
         {
-            _logger.LogInformation("🔄 [Maintenance] Starting ExpirePolicies job at {Time}", DateTime.UtcNow);
+            _logger.LogInformation("[Maintenance] Starting ExpirePolicies job at {Time}", DateTime.UtcNow);
 
             var now = DateTime.UtcNow;
 
@@ -55,11 +55,11 @@ namespace FarmClaim.Infrastructure.Jobs
 
             if (policiesToExpire.Count == 0)
             {
-                _logger.LogInformation("✅ [Maintenance] No policies to expire");
+                _logger.LogInformation("[Maintenance] No policies to expire");
                 return;
             }
 
-            _logger.LogInformation("📦 [Maintenance] Found {Count} policies to expire", policiesToExpire.Count);
+            _logger.LogInformation("[Maintenance] Found {Count} policies to expire", policiesToExpire.Count);
 
             foreach (var policy in policiesToExpire)
             {
@@ -68,7 +68,7 @@ namespace FarmClaim.Infrastructure.Jobs
             }
 
             await _context.SaveChangesAsync();
-            _logger.LogInformation("✅ [Maintenance] Expired {Count} policies", policiesToExpire.Count);
+            _logger.LogInformation("[Maintenance] Expired {Count} policies", policiesToExpire.Count);
         }
 
         // ============================================
@@ -78,7 +78,7 @@ namespace FarmClaim.Infrastructure.Jobs
         [Hangfire.AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
         public async Task CleanupExpiredTokensAsync()
         {
-            _logger.LogInformation("🔄 [Maintenance] Starting CleanupExpiredTokens job at {Time}", DateTime.UtcNow);
+            _logger.LogInformation("[Maintenance] Starting CleanupExpiredTokens job at {Time}", DateTime.UtcNow);
 
             var now = DateTime.UtcNow;
             var cutoff = now.AddDays(-30);
@@ -90,7 +90,7 @@ namespace FarmClaim.Infrastructure.Jobs
             if (oldResetTokens.Count > 0)
             {
                 _context.PasswordResetTokens.RemoveRange(oldResetTokens);
-                _logger.LogInformation("🗑️ [Maintenance] Deleted {Count} old password reset tokens", oldResetTokens.Count);
+                _logger.LogInformation("[Maintenance] Deleted {Count} old password reset tokens", oldResetTokens.Count);
             }
 
             var oldOtpCodes = await _context.EmailVerificationCodes
@@ -100,7 +100,7 @@ namespace FarmClaim.Infrastructure.Jobs
             if (oldOtpCodes.Count > 0)
             {
                 _context.EmailVerificationCodes.RemoveRange(oldOtpCodes);
-                _logger.LogInformation("🗑️ [Maintenance] Deleted {Count} old OTP codes", oldOtpCodes.Count);
+                _logger.LogInformation("[Maintenance] Deleted {Count} old OTP codes", oldOtpCodes.Count);
             }
 
             var oldEmailChangeTokens = await _context.EmailChangeTokens
@@ -110,7 +110,7 @@ namespace FarmClaim.Infrastructure.Jobs
             if (oldEmailChangeTokens.Count > 0)
             {
                 _context.EmailChangeTokens.RemoveRange(oldEmailChangeTokens);
-                _logger.LogInformation("🗑️ [Maintenance] Deleted {Count} old email change tokens", oldEmailChangeTokens.Count);
+                _logger.LogInformation("[Maintenance] Deleted {Count} old email change tokens", oldEmailChangeTokens.Count);
             }
 
             var oldRefreshTokens = await _context.RefreshTokens
@@ -120,11 +120,11 @@ namespace FarmClaim.Infrastructure.Jobs
             if (oldRefreshTokens.Count > 0)
             {
                 _context.RefreshTokens.RemoveRange(oldRefreshTokens);
-                _logger.LogInformation("🗑️ [Maintenance] Deleted {Count} old refresh tokens", oldRefreshTokens.Count);
+                _logger.LogInformation("[Maintenance] Deleted {Count} old refresh tokens", oldRefreshTokens.Count);
             }
 
             await _context.SaveChangesAsync();
-            _logger.LogInformation("✅ [Maintenance] Token cleanup complete");
+            _logger.LogInformation("[Maintenance] Token cleanup complete");
         }
 
         // ============================================
@@ -134,7 +134,7 @@ namespace FarmClaim.Infrastructure.Jobs
         [Hangfire.AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
         public async Task SendPolicyExpiryRemindersAsync()
         {
-            _logger.LogInformation("🔄 [Maintenance] Starting PolicyExpiryReminder job at {Time}", DateTime.UtcNow);
+            _logger.LogInformation("[Maintenance] Starting PolicyExpiryReminder job at {Time}", DateTime.UtcNow);
 
             var now = DateTime.UtcNow;
             var sevenDaysFromNow = now.AddDays(7);
@@ -149,11 +149,11 @@ namespace FarmClaim.Infrastructure.Jobs
 
             if (policiesExpiringSoon.Count == 0)
             {
-                _logger.LogInformation("✅ [Maintenance] No policies expiring in 7 days");
+                _logger.LogInformation("[Maintenance] No policies expiring in 7 days");
                 return;
             }
 
-            _logger.LogInformation("📨 [Maintenance] Sending {Count} expiry reminders", policiesExpiringSoon.Count);
+            _logger.LogInformation("[Maintenance] Sending {Count} expiry reminders", policiesExpiringSoon.Count);
 
             var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "http://localhost:3000";
 
@@ -184,7 +184,7 @@ namespace FarmClaim.Infrastructure.Jobs
                 });
             }
 
-            _logger.LogInformation("✅ [Maintenance] Sent {Count} expiry reminders", policiesExpiringSoon.Count);
+            _logger.LogInformation("[Maintenance] Sent {Count} expiry reminders", policiesExpiringSoon.Count);
         }
 
         // ============================================
@@ -194,7 +194,7 @@ namespace FarmClaim.Infrastructure.Jobs
         [Hangfire.AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
         public async Task CancelStalePendingPoliciesAsync()
         {
-            _logger.LogInformation("🔄 [Maintenance] Starting CancelStalePendingPolicies job at {Time}", DateTime.UtcNow);
+            _logger.LogInformation("[Maintenance] Starting CancelStalePendingPolicies job at {Time}", DateTime.UtcNow);
 
             var cutoff = DateTime.UtcNow.AddDays(-30); // Pending for 30+ days = stale
 
@@ -206,11 +206,11 @@ namespace FarmClaim.Infrastructure.Jobs
 
             if (stalePolicies.Count == 0)
             {
-                _logger.LogInformation("✅ [Maintenance] No stale pending policies found");
+                _logger.LogInformation("[Maintenance] No stale pending policies found");
                 return;
             }
 
-            _logger.LogInformation("📦 [Maintenance] Found {Count} stale pending policies to cancel", stalePolicies.Count);
+            _logger.LogInformation("[Maintenance] Found {Count} stale pending policies to cancel", stalePolicies.Count);
 
             foreach (var policy in stalePolicies)
             {
@@ -221,7 +221,7 @@ namespace FarmClaim.Infrastructure.Jobs
             }
 
             await _context.SaveChangesAsync();
-            _logger.LogInformation("✅ [Maintenance] Cancelled {Count} stale pending policies", stalePolicies.Count);
+            _logger.LogInformation("[Maintenance] Cancelled {Count} stale pending policies", stalePolicies.Count);
         }
     }
 

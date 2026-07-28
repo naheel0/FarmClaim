@@ -76,7 +76,7 @@ namespace FarmClaim.Application.Features.Auth.Commands.ConfirmEmailChange
 
             await _context.SaveChangesAsync(ct);
 
-            _logger.LogInformation("✅ Email changed for user {UserId}: {OldEmail} → {NewEmail} from IP {Ip}",
+            _logger.LogInformation("Email changed for user {UserId}: {OldEmail} -> {NewEmail} from IP {Ip}",
                 user.Id, oldEmail, newEmail, cmd.ClientIp ?? "unknown");
 
             return new EmailChangeResponseDto

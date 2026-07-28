@@ -24,7 +24,7 @@ namespace FarmClaim.API.Middleware
             _logger = logger;
         }
 
-        // ✅ Correct .NET 8 signature: Func<OnRejectedContext, CancellationToken, ValueTask>
+        // Correct .NET 8 signature: Func<OnRejectedContext, CancellationToken, ValueTask>
         public Func<OnRejectedContext, CancellationToken, ValueTask>? OnRejected =>
             async (context, cancellationToken) =>
             {
@@ -32,7 +32,7 @@ namespace FarmClaim.API.Middleware
                 var clientIp = GetClientIp(httpContext);
 
                 _logger.LogWarning(
-                    "🚫 Rate limit exceeded: IP={Ip}, Path={Path}",
+                    "Rate limit exceeded: IP={Ip}, Path={Path}",
                     clientIp, httpContext.Request.Path);
 
                 httpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
@@ -92,7 +92,7 @@ namespace FarmClaim.API.Middleware
             // Partition key = endpoint + user/ip
             var partitionKey = $"{path}:{userKey}";
 
-            // ✅ Use positional args (not named) to avoid version-specific param name issues
+            // Use positional args (not named) to avoid version-specific param name issues
             return RateLimitPartition.GetFixedWindowLimiter(
                 partitionKey,
                 _ => new FixedWindowRateLimiterOptions

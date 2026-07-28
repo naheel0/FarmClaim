@@ -15,7 +15,7 @@ namespace FarmClaim.Application.Features.Farms.DTOs
 
         public bool? IsActive { get; init; }
 
-        // ✅ FIXED: Added all missing properties
+        // FIXED: Added all missing properties
         public double? Latitude { get; init; }
 
         public double? Longitude { get; init; }

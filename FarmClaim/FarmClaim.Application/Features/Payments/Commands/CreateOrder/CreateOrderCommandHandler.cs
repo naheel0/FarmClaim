@@ -79,7 +79,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.CreateOrder
                     new List<string> { "Policy premium must be greater than 0." }
                 );
 
-            // ✅ FIXED: Use .ToString() instead of :ToString
+            // FIXED: Use .ToString() instead of :ToString
             var receiptNumber =
                 $"RCT-{DateTime.UtcNow:yyyy}-{Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper()}";
 

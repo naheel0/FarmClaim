@@ -144,7 +144,7 @@ namespace FarmClaim.API.Controllers
 
                 if (!razorpayService.VerifyWebhookSignature(payload, signature))
                 {
-                    _logger.LogError("❌ Webhook signature verification failed");
+                    _logger.LogError("Webhook signature verification failed");
                     return Unauthorized(new { error = "Invalid signature" });
                 }
 

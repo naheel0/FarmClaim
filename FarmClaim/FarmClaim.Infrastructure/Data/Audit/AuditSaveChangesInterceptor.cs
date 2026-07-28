@@ -35,7 +35,7 @@ namespace FarmClaim.Infrastructure.Data.Audit
             var ip = httpContext?.Connection?.RemoteIpAddress?.ToString();
             var userAgent = httpContext?.Request?.Headers.UserAgent.ToString();
 
-            // ✅ NEW: Extract HTTP context info for audit trail
+            // NEW: Extract HTTP context info for audit trail
             var correlationId = httpContext?.TraceIdentifier
                                 ?? httpContext?.Request?.Headers["X-Correlation-ID"].FirstOrDefault();
             var httpMethod = httpContext?.Request?.Method;
@@ -111,7 +111,7 @@ namespace FarmClaim.Infrastructure.Data.Audit
                 IpAddress = ip,
                 UserAgent = userAgent,
                 Timestamp = DateTime.UtcNow,
-                // ✅ NEW: HTTP context tracking
+                // NEW: HTTP context tracking
                 CorrelationId = correlationId,
                 HttpMethod = httpMethod,
                 HttpPath = httpPath

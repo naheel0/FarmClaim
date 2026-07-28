@@ -79,7 +79,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.VerifyPayment
                 payment.FailedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync(ct);
 
-                _logger.LogWarning("❌ Signature verification failed for Order {OrderId}", cmd.Request.RazorpayOrderId);
+                _logger.LogWarning("Signature verification failed for Order {OrderId}", cmd.Request.RazorpayOrderId);
                 throw new ValidationException(new List<string> { "Payment signature verification failed. Possible tampering detected." });
             }
 
@@ -125,7 +125,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.VerifyPayment
 
             await _context.SaveChangesAsync(ct);
 
-            _logger.LogInformation("✅ Payment captured: PaymentId={PaymentId}, Amount=₹{Amount}, Method={Method}",
+            _logger.LogInformation("Payment captured: PaymentId={PaymentId}, Amount=₹{Amount}, Method={Method}",
                 payment.Id, payment.AmountInRupees, payment.Method);
 
             var farmer = payment.Policy?.Farm?.User;

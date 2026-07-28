@@ -26,13 +26,13 @@ namespace FarmClaim.Application.Features.Farms.Queries.GetFarmById
         {
             _logger.LogInformation("Getting farm {FarmId} for user {UserId}", request.FarmId, request.UserId);
 
-            // ✅ FIXED: Now checks user ownership
+            // FIXED: Now checks user ownership
             var farm = await _context.Farms
                 .AsNoTracking()
                 .Include(f => f.InsurancePolicies)
                 .Include(f => f.Claims)
                 .FirstOrDefaultAsync(f => f.Id == request.FarmId
-                    && f.UserId == request.UserId // ✅ FIXED: Ownership check added
+                    && f.UserId == request.UserId // FIXED: Ownership check added
                     && !f.IsDeleted, ct);
 
             if (farm == null)

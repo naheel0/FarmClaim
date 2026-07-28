@@ -46,7 +46,7 @@ namespace FarmClaim.Infrastructure.Email.Services
             if (_settings.DummyMode)
             {
                 _logger.LogInformation(
-                    "📧 [DUMMY] To: {Recipients} | Subject: {Subject}\nBody: {Body}",
+                    "[DUMMY] To: {Recipients} | Subject: {Subject}\nBody: {Body}",
                     string.Join(", ", toEmails), subject, htmlBody);
                 return;
             }
@@ -77,7 +77,7 @@ namespace FarmClaim.Infrastructure.Email.Services
                     var result = JsonDocument.Parse(responseBody);
                     if (result.RootElement.TryGetProperty("success", out var successProp) && successProp.GetBoolean())
                     {
-                        _logger.LogInformation("✅ Elastic Email accepted email for {Recipients}",
+                        _logger.LogInformation("Elastic Email accepted email for {Recipients}",
                             string.Join(", ", toEmails));
                     }
                     else
@@ -85,7 +85,7 @@ namespace FarmClaim.Infrastructure.Email.Services
                         var error = result.RootElement.TryGetProperty("error", out var errProp)
                             ? errProp.GetString()
                             : "Unknown error";
-                        _logger.LogError("❌ Elastic Email API error: {Error}", error);
+                        _logger.LogError("Elastic Email API error: {Error}", error);
                         throw new HttpRequestException($"Elastic Email API error: {error}");
                     }
                 }
@@ -102,7 +102,7 @@ namespace FarmClaim.Infrastructure.Email.Services
             }
             catch (Exception ex) when (ex is not HttpRequestException)
             {
-                _logger.LogError(ex, "❌ Failed to send email via Elastic Email to {Recipients}",
+                _logger.LogError(ex, "Failed to send email via Elastic Email to {Recipients}",
                     string.Join(", ", toEmails));
                 throw;
             }

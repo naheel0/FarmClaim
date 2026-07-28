@@ -16,7 +16,7 @@ namespace FarmClaim.Domain.Entities
         [ForeignKey(nameof(UserId))]
         public virtual User User { get; set; } = null!;
 
-        // ✅ FIXED: Added explicit column type for decimal
+        // FIXED: Added explicit column type for decimal
         [Required]
         [Column(TypeName = "decimal(18, 2)")]
         public decimal AreaInHectares { get; set; }
@@ -32,11 +32,11 @@ namespace FarmClaim.Domain.Entities
         [Column(TypeName = "nvarchar(max)")]
         public string? LocationGeoJson { get; set; }
 
-        // ✅ FIXED: Added IsActive property
+        // FIXED: Added IsActive property
         [Required]
         public bool IsActive { get; set; } = true;
 
-        // ✅ FIXED: Added navigation collections
+        // FIXED: Added navigation collections
         public virtual ICollection<InsurancePolicy> InsurancePolicies { get; set; } = new List<InsurancePolicy>();
 
         public virtual ICollection<FarmClaim.Domain.Entities.Claim> Claims { get; set; } = new List<FarmClaim.Domain.Entities.Claim>();

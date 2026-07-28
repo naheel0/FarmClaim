@@ -32,11 +32,11 @@ namespace FarmClaim.Infrastructure.Email.Services
                     await _emailService.SendEmailAsync(toEmail, subject, htmlBody);
                 });
 
-                _logger.LogInformation("✅ Email sent: To={To}, Subject={Subject}", toEmail, subject);
+                _logger.LogInformation("Email sent: To={To}, Subject={Subject}", toEmail, subject);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Email permanently failed after retries: To={To}", toEmail);
+                _logger.LogError(ex, "Email permanently failed after retries: To={To}", toEmail);
                 throw; // Hangfire will retry 3 more times with its own backoff
             }
         }

@@ -31,7 +31,7 @@ namespace FarmClaim.Infrastructure.Email.Services
             // Enqueue to Hangfire — survives app restarts, retries automatically
             _jobClient.Enqueue<EmailJob>(job => job.SendAsync(toEmail, renderedSubject, htmlBody));
 
-            _logger.LogInformation("📧 Email enqueued: To={To}, Template={Template}", toEmail, templateName);
+            _logger.LogInformation("Email enqueued: To={To}, Template={Template}", toEmail, templateName);
         }
 
         public async Task EnqueueEmailAsync(string toEmail, string subject, string htmlBody)

@@ -33,7 +33,7 @@ namespace FarmClaim.Infrastructure.Data.Configurations
             builder.Property(f => f.IsActive)
                 .IsRequired();
 
-            // ✅ Relationships
+            // Relationships
             builder.HasOne(f => f.User)
                   .WithMany(u => u.Farms)
                   .HasForeignKey(f => f.UserId)

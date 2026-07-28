@@ -100,7 +100,7 @@ namespace FarmClaim.Application.Features.Auth.Commands.ResetPassword
 
             await _context.SaveChangesAsync(ct);
 
-            _logger.LogInformation("✅ Password successfully reset for user {UserId} from IP {Ip}",
+            _logger.LogInformation("Password successfully reset for user {UserId} from IP {Ip}",
                 user.Id, command.ClientIp ?? "unknown");
 
             return new PasswordResetResponseDto

@@ -113,7 +113,7 @@ namespace FarmClaim.Application.Features.Auth.Commands.VerifyEmail
             await _context.RefreshTokens.AddAsync(refreshTokenEntity, ct);
             await _context.SaveChangesAsync(ct);
 
-            _logger.LogInformation("✅ Email verified for user {UserId} from IP {Ip}",
+            _logger.LogInformation("Email verified for user {UserId} from IP {Ip}",
                 user.Id, cmd.ClientIp ?? "unknown");
 
             return new VerifyEmailResponseDto

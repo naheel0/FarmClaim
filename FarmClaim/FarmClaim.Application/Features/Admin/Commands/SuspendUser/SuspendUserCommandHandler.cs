@@ -54,7 +54,7 @@ namespace FarmClaim.Application.Features.Admin.Commands.SuspendUser
             await RevokeAllUserRefreshTokensAsync(user.Id, cmd.AdminUserId, "User suspended by admin", ct);
             await _context.SaveChangesAsync(ct);
 
-            // ✅ NEW: Send suspension email
+            // NEW: Send suspension email
             await _emailQueue.EnqueueEmailAsync(
                 toEmail: user.Email,
                 templateName: "UserSuspendedEmail",

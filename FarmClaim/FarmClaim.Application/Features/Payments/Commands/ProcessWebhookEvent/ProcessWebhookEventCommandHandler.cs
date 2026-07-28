@@ -24,7 +24,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.ProcessWebhookEvent
         public async Task<bool> Handle(ProcessWebhookEventCommand cmd, CancellationToken ct)
         {
             var evt = cmd.Event;
-            _logger.LogInformation("📨 Processing Razorpay webhook: Event={Event}, PaymentId={PaymentId}",
+            _logger.LogInformation("Processing Razorpay webhook: Event={Event}, PaymentId={PaymentId}",
                 evt.Event, evt.Payload.Payment?.Id ?? evt.Payload.Refund?.PaymentId);
 
             switch (evt.Event)
@@ -54,7 +54,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.ProcessWebhookEvent
                     break;
 
                 case "payment.downtime":
-                    _logger.LogWarning("⚠️ Razorpay payment downtime notification received");
+                    _logger.LogWarning("Razorpay payment downtime notification received");
                     break;
 
                 default:
@@ -103,7 +103,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.ProcessWebhookEvent
             }
 
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("✅ Webhook: Payment {PaymentId} marked as Captured", payment.Id);
+            _logger.LogInformation("Webhook: Payment {PaymentId} marked as Captured", payment.Id);
         }
 
         private async Task HandlePaymentFailedAsync(RazorpayWebhookEventDto evt, CancellationToken ct)
@@ -132,7 +132,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.ProcessWebhookEvent
             payment.PaymentId = paymentDto.Id;
 
             await _context.SaveChangesAsync(ct);
-            _logger.LogWarning("❌ Webhook: Payment {PaymentId} marked as Failed. Reason: {Reason}",
+            _logger.LogWarning("Webhook: Payment {PaymentId} marked as Failed. Reason: {Reason}",
                 payment.Id, payment.FailureReason);
         }
 
@@ -161,7 +161,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.ProcessWebhookEvent
             payment.Notes = $"Refunded. Refund ID: {refundDto.Id}, Amount: ₹{refundDto.Amount / 100m:N2}, Speed: {refundDto.Speed}";
 
             await _context.SaveChangesAsync(ct);
-            _logger.LogInformation("💰 Webhook: Payment {PaymentId} marked as Refunded. RefundId={RefundId}",
+            _logger.LogInformation("Webhook: Payment {PaymentId} marked as Refunded. RefundId={RefundId}",
                 payment.Id, refundDto.Id);
         }
     }

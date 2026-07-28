@@ -5,7 +5,7 @@
 }
 @section Title { Your Policy Expires in @Model.DaysLeft Days — FarmClaim }
 
-<h2 style="color:#f57c00;margin-top:0;">⏰ Policy Expiring Soon</h2>
+<h2 style="color:#f57c00;margin-top:0;">Policy Expiring Soon</h2>
 
 <p>Hello @Model.FarmerName,</p>
 
@@ -29,7 +29,7 @@
 </table>
 
 <p style="background-color:#fff3e0;padding:15px;border-radius:4px;border-left:4px solid #f57c00;font-size:13px;">
-    ⚠️ <strong>Important:</strong> If you don't renew before the expiry date, your farm will not be covered
+    <strong>Important:</strong> If you don't renew before the expiry date, your farm will not be covered
     for any crop damage after @Model.EndDate.ToString("MMM dd, yyyy").
 </p>
 

@@ -55,7 +55,7 @@ namespace FarmClaim.Application.Features.Admin.Commands.BlockUser
             await RevokeAllUserRefreshTokensAsync(user.Id, cmd.AdminUserId, "User blocked by admin", ct);
             await _context.SaveChangesAsync(ct);
 
-            // ✅ NEW: Send block email (reuse suspended template with blocked messaging)
+            // NEW: Send block email (reuse suspended template with blocked messaging)
             await _emailQueue.EnqueueEmailAsync(
                 toEmail: user.Email,
                 templateName: "UserSuspendedEmail", // You can create a separate UserBlockedEmail template if preferred
