@@ -20,17 +20,7 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.UpdatePolicy
                 .MaximumLength(200)
                 .When(x => x.Request.Provider != null);
 
-            RuleFor(x => x.Request.CoverageAmount)
-                .GreaterThan(0)
-                .When(x => x.Request.CoverageAmount.HasValue);
-
-            RuleFor(x => x.Request.Premium)
-                .GreaterThan(0)
-                .When(x => x.Request.Premium.HasValue);
-
-            RuleFor(x => x.Request.SumInsured)
-                .GreaterThan(0)
-                .When(x => x.Request.SumInsured.HasValue);
+            // Financial fields (CoverageAmount, Premium, SumInsured) are read-only for farmers.
 
             RuleFor(x => x.Request)
                 .Must(x => x.StartDate == null || x.EndDate == null || x.StartDate < x.EndDate)

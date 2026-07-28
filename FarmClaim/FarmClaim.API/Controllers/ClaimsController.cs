@@ -20,25 +20,26 @@ namespace FarmClaim.API.Controllers
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
+    [Authorize]
     public class ClaimsController : ControllerBase
     {
         private readonly IMediator _mediator;
         private readonly IApplicationDbContext _context;
         private readonly IFileStorageService _fileStorage;
-        private readonly IGeminiVisionService _geminiService;
+        private readonly IClaimBackgroundJobService _backgroundJobService;
         private readonly ILogger<ClaimsController> _logger;
 
         public ClaimsController(
             IMediator mediator,
             IApplicationDbContext context,
             IFileStorageService fileStorage,
-            IGeminiVisionService geminiService,
+            IClaimBackgroundJobService backgroundJobService,
             ILogger<ClaimsController> logger)
         {
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _fileStorage = fileStorage ?? throw new ArgumentNullException(nameof(fileStorage));
-            _geminiService = geminiService ?? throw new ArgumentNullException(nameof(geminiService));
+            _backgroundJobService = backgroundJobService ?? throw new ArgumentNullException(nameof(backgroundJobService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -112,7 +113,8 @@ namespace FarmClaim.API.Controllers
 
                     // 1. Upload to Cloudinary
                     var folder = $"claims/{claimId}";
-                    var uploadResult = await _fileStorage.UploadAsync(file.OpenReadStream(), file.FileName, folder);
+                    using var stream = file.OpenReadStream();
+                    var uploadResult = await _fileStorage.UploadAsync(stream, file.FileName, folder);
 
                     // 2. Save to DB
                     var claimImage = new ClaimImage
@@ -136,38 +138,11 @@ namespace FarmClaim.API.Controllers
                     _logger.LogInformation("Image saved: {Url}", uploadResult.Url);
                 }
 
-                // 3. Run Gemini AI in background
+                // 3. Run Gemini AI via Hangfire background job
                 if (imageUrls.Count > 0)
                 {
-                    var claimIdCopy = claimId;
-                    var cropTypeCopy = cropType ?? claim.Policy?.Farm?.CropType ?? "unknown";
-                    var urlsCopy = imageUrls.ToList();
-
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            using var scope = HttpContext.RequestServices.CreateScope();
-                            var gemini = scope.ServiceProvider.GetRequiredService<IGeminiVisionService>();
-                            var db = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
-
-                            var aiResult = await gemini.AnalyzeImagesAsync(urlsCopy, cropTypeCopy);
-                            var existingClaim = await db.Claims.FirstOrDefaultAsync(c => c.Id == claimIdCopy);
-                            if (existingClaim != null)
-                            {
-                                existingClaim.AIAnalysisResult = System.Text.Json.JsonSerializer.Serialize(aiResult,
-                                    new System.Text.Json.JsonSerializerOptions
-                                    {
-                                        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-                                    });
-                                await db.SaveChangesAsync();
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "AI analysis failed for claim {ClaimId}", claimIdCopy);
-                        }
-                    });
+                    var cropTypeForJob = cropType ?? claim.Policy?.Farm?.CropType ?? "unknown";
+                    _backgroundJobService.EnqueueAIAnalysis(claimId, imageUrls, cropTypeForJob);
                 }
 
                 var uploadedImages = claim.Images
@@ -258,6 +233,8 @@ namespace FarmClaim.API.Controllers
         {
             try
             {
+                pageSize = Math.Clamp(pageSize, 1, 100);
+                pageNumber = Math.Max(1, pageNumber);
                 var userId = GetUserId();
                 var query = new GetMyClaimsQuery(userId, pageNumber, pageSize, status, searchTerm);
                 var result = await _mediator.Send(query);
@@ -342,20 +319,6 @@ namespace FarmClaim.API.Controllers
             return id;
         }
 
-        private IActionResult HandleError(Exception ex)
-        {
-            switch (ex)
-            {
-                case NotFoundException _:
-                    return StatusCode(StatusCodes.Status404NotFound, new { error = ex.Message });
-                case UnauthorizedAccessException _:
-                    return StatusCode(StatusCodes.Status401Unauthorized, new { error = "Access denied" });
-                default:
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { error = "An unexpected error occurred", detail = ex.Message });
-            }
-        }
-
         private static string? ExtractPublicId(string imageUrl)
         {
             try
@@ -373,6 +336,20 @@ namespace FarmClaim.API.Controllers
             catch
             {
                 return null;
+            }
+        }
+
+        private IActionResult HandleError(Exception ex)
+        {
+            switch (ex)
+            {
+                case NotFoundException _:
+                    return StatusCode(StatusCodes.Status404NotFound, new { error = "Resource not found" });
+                case UnauthorizedException _:
+                    return StatusCode(StatusCodes.Status401Unauthorized, new { error = "Access denied" });
+                default:
+                    _logger.LogError(ex, "Unexpected error in ClaimsController");
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An unexpected error occurred" });
             }
         }
     }

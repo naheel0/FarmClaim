@@ -18,6 +18,7 @@ namespace FarmClaim.API.Controllers
         private readonly ILogger<AdminPlansController> _logger;
 
         public AdminPlansController(IMediator mediator, ILogger<AdminPlansController> logger)
+            : base(logger)
         {
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -34,6 +35,9 @@ namespace FarmClaim.API.Controllers
         {
             try
             {
+                pageSize = Math.Clamp(pageSize, 1, 100);
+                pageNumber = Math.Max(1, pageNumber);
+
                 var result = await _mediator.Send(new GetAllPlansQuery(
                     pageNumber, pageSize, searchTerm, cropType, isActive, AdminContext: true));
                 return Ok(result);

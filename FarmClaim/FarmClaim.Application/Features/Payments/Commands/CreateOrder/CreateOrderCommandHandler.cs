@@ -72,10 +72,11 @@ namespace FarmClaim.Application.Features.Payments.Commands.CreateOrder
                     }
                 );
 
-            var amount = cmd.Request.CustomAmount ?? policy.Premium;
+            // Always charge the policy premium — no custom amounts allowed
+            var amount = policy.Premium;
             if (amount <= 0)
                 throw new ValidationException(
-                    new List<string> { "Amount must be greater than 0." }
+                    new List<string> { "Policy premium must be greater than 0." }
                 );
 
             // ✅ FIXED: Use .ToString() instead of :ToString

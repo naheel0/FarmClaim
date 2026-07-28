@@ -34,6 +34,7 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetClaimDetail
                 throw new NotFoundException(nameof(Claim), request.ClaimId);
 
             double? aiDamage = null;
+            string? aiDamageDescription = null;
             string? aiConfidence = null;
             decimal? suggestedPayout = null;
             string? aiRecommendation = null;
@@ -44,6 +45,7 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetClaimDetail
                 {
                     var aiData = JsonDocument.Parse(claim.AIAnalysisResult).RootElement;
                     aiDamage = aiData.TryGetProperty("damagePercentage", out var dp) ? dp.GetDouble() : null;
+                    aiDamageDescription = aiData.TryGetProperty("damageDescription", out var dd) ? dd.GetString() : null;
                     aiConfidence = aiData.TryGetProperty("confidence", out var cf) ? cf.GetString() : null;
 
                     if (aiDamage.HasValue && claim.Policy != null)
@@ -63,6 +65,32 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetClaimDetail
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Failed to parse AI analysis for claim {ClaimId}", claim.Id);
+                }
+            }
+
+            double? weatherTemp = null;
+            double? weatherRain = null;
+            double? weatherWind = null;
+            string? weatherCondition = null;
+            string? weatherSource = null;
+            DateTime? weatherDate = null;
+
+            if (!string.IsNullOrEmpty(claim.WeatherSnapshot))
+            {
+                try
+                {
+                    var weatherData = JsonDocument.Parse(claim.WeatherSnapshot).RootElement;
+                    weatherTemp = weatherData.TryGetProperty("temperatureCelsius", out var t) ? t.GetDouble() : null;
+                    weatherRain = weatherData.TryGetProperty("rainfallMm", out var r) ? r.GetDouble() : null;
+                    weatherWind = weatherData.TryGetProperty("windSpeedKmh", out var w) ? w.GetDouble() : null;
+                    weatherCondition = weatherData.TryGetProperty("weatherCondition", out var wc) ? wc.GetString() : null;
+                    weatherSource = weatherData.TryGetProperty("source", out var src) ? src.GetString() : null;
+                    if (weatherData.TryGetProperty("date", out var dt) && dt.TryGetDateTime(out var parsed))
+                        weatherDate = parsed;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse weather snapshot for claim {ClaimId}", claim.Id);
                 }
             }
 
@@ -97,9 +125,16 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetClaimDetail
                 CreatedAt = claim.CreatedAt,
                 UpdatedAt = claim.UpdatedAt,
                 AIDamagePercentage = aiDamage,
+                AIDamageDescription = aiDamageDescription,
                 AIConfidence = aiConfidence,
                 SuggestedPayout = suggestedPayout,
                 AIRecommendation = aiRecommendation,
+                WeatherTemperatureCelsius = weatherTemp,
+                WeatherRainfallMm = weatherRain,
+                WeatherWindSpeedKmh = weatherWind,
+                WeatherCondition = weatherCondition,
+                WeatherSource = weatherSource,
+                WeatherDate = weatherDate,
                 Images = claim.Images
                     .Where(i => !i.IsDeleted)
                     .OrderBy(i => i.DisplayOrder)

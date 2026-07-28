@@ -28,9 +28,11 @@ namespace FarmClaim.Domain.Entities
         public string PolicyNumber { get; set; } = string.Empty;
 
         [Required]
+        [Column(TypeName = "decimal(18, 2)")]
         public decimal CoverageAmount { get; set; }
 
         [Required]
+        [Column(TypeName = "decimal(18, 2)")]
         public decimal Premium { get; set; }
 
         [Required]
@@ -44,6 +46,7 @@ namespace FarmClaim.Domain.Entities
         public string CropType { get; set; } = string.Empty;
 
         [Required]
+        [Column(TypeName = "decimal(18, 2)")]
         public decimal SumInsured { get; set; }
 
         [Required]

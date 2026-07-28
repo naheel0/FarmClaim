@@ -38,18 +38,27 @@ namespace FarmClaim.Application.Features.Admin.DTOs
         public DateTime? PaidAt { get; init; }
         public string? PaymentReference { get; init; }
 
-        // AI & Weather (unchanged)
+        // AI & Weather — raw JSON
         public string? WeatherSnapshot { get; init; }
         public string? AIAnalysisResult { get; init; }
 
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
 
-        // AI Recommendation (unchanged)
+        // Parsed AI fields
+        public double? AIDamagePercentage { get; init; }
+        public string? AIDamageDescription { get; init; }
+        public string? AIConfidence { get; init; }
         public string? AIRecommendation { get; init; }
         public decimal? SuggestedPayout { get; init; }
-        public double? AIDamagePercentage { get; init; }
-        public string? AIConfidence { get; init; }
+
+        // Parsed Weather fields
+        public double? WeatherTemperatureCelsius { get; init; }
+        public double? WeatherRainfallMm { get; init; }
+        public double? WeatherWindSpeedKmh { get; init; }
+        public string? WeatherCondition { get; init; }
+        public string? WeatherSource { get; init; }
+        public DateTime? WeatherDate { get; init; }
 
         public List<ClaimImageDto> Images { get; init; } = new();
     }

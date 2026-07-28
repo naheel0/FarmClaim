@@ -171,7 +171,7 @@ namespace FarmClaim.Infrastructure.Jobs
                         PolicyNumber = policy.PolicyNumber,
                         CropType = policy.CropType,
                         EndDate = policy.EndDate,
-                        DaysLeft = 7,
+                        DaysLeft = Math.Max(0, (policy.EndDate - now).Days),
                         RenewUrl = $"{frontendBaseUrl}/policies/{policy.Id}"
                     });
 

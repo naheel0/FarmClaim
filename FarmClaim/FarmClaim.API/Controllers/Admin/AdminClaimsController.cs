@@ -1,6 +1,9 @@
 ﻿using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Common.Interfaces;
+using FarmClaim.Application.Features.Admin.Commands.ApproveClaim;
 using FarmClaim.Application.Features.Admin.Commands.PayClaim;
+using FarmClaim.Application.Features.Admin.Commands.RejectClaim;
+using FarmClaim.Application.Features.Admin.Commands.SetUnderReview;
 using FarmClaim.Application.Features.Admin.DTOs;
 using FarmClaim.Application.Features.Admin.Queries.GetAllClaims;
 using FarmClaim.Application.Features.Admin.Queries.GetClaimDetail;
@@ -8,25 +11,23 @@ using FarmClaim.Application.Features.Notifications.DTOs;
 using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace FarmClaim.API.Controllers
 {
     [Route("api/v1/Admin/Claims")]
     public class AdminClaimsController : AdminBaseController
     {
-        private readonly IApplicationDbContext _context;
         private readonly IMediator _mediator;
         private readonly INotificationService _notificationService;
         private readonly ILogger<AdminClaimsController> _logger;
 
         public AdminClaimsController(
-            IApplicationDbContext context,
             IMediator mediator,
+            IApplicationDbContext context,
             INotificationService notificationService,
             ILogger<AdminClaimsController> logger)
+            : base(logger)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -45,6 +46,8 @@ namespace FarmClaim.API.Controllers
         {
             try
             {
+                pageSize = Math.Clamp(pageSize, 1, 100);
+                pageNumber = Math.Max(1, pageNumber);
                 var query = new GetAllClaimsQuery(pageNumber, pageSize, status, incidentType, searchTerm, sortBy, sortOrder);
                 var result = await _mediator.Send(query);
                 return Ok(result);
@@ -82,35 +85,33 @@ namespace FarmClaim.API.Controllers
         {
             try
             {
-                var adminEmail = GetAdminEmail();
                 var adminId = GetAdminId();
+                var adminEmail = GetAdminEmail();
 
-                var claim = await _context.Claims
-                    .FirstOrDefaultAsync(c => c.Id == claimId && !c.IsDeleted);
+                await _mediator.Send(new SetUnderReviewCommand(claimId, adminId, adminEmail));
 
-                if (claim == null)
-                    return NotFound(new { error = "Claim not found" });
-
-                if (claim.Status != ClaimStatus.Pending)
-                    return BadRequest(new { error = $"Only pending claims can be set to review. Current: {claim.Status}" });
-
-                claim.Status = ClaimStatus.UnderReview;
-                claim.ReviewedBy = adminEmail;
-                claim.ReviewedByUserId = adminId;
-                claim.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                await _notificationService.SendClaimUpdateAsync(claim.UserId, new ClaimNotificationDto
+                var userId = await GetClaimUserId(claimId);
+                if (userId.HasValue)
                 {
-                    ClaimId = claimId,
-                    Status = ClaimStatus.UnderReview,
-                    Title = "Claim Under Review",
-                    Message = "Your claim is now being reviewed by our team.",
-                    NotificationType = "StatusChanged"
-                });
+                    await _notificationService.SendClaimUpdateAsync(userId.Value, new ClaimNotificationDto
+                    {
+                        ClaimId = claimId,
+                        Status = ClaimStatus.UnderReview,
+                        Title = "Claim Under Review",
+                        Message = "Your claim is now being reviewed by our team.",
+                        NotificationType = "StatusChanged"
+                    });
+                }
 
-                return Ok(new { message = "Claim set to under review", claimId = claim.Id });
+                return Ok(new { message = "Claim set to under review", claimId });
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new { error = ex.Errors.FirstOrDefault() });
             }
             catch (Exception ex)
             {
@@ -124,58 +125,39 @@ namespace FarmClaim.API.Controllers
         {
             try
             {
-                var adminEmail = GetAdminEmail();
                 var adminId = GetAdminId();
+                var adminEmail = GetAdminEmail();
 
-                var claim = await _context.Claims
-                    .Include(c => c.Policy)
-                    .FirstOrDefaultAsync(c => c.Id == claimId && !c.IsDeleted);
+                await _mediator.Send(new ApproveClaimCommand(claimId, adminId, adminEmail, request));
 
-                if (claim == null)
-                    return NotFound(new { error = "Claim not found" });
-
-                if (claim.Status == ClaimStatus.Approved)
-                    return BadRequest(new { error = "Claim is already approved" });
-
-                if (claim.Status == ClaimStatus.Rejected)
-                    return BadRequest(new { error = "Cannot approve a rejected claim" });
-
-                if (claim.Status == ClaimStatus.Paid)
-                    return BadRequest(new { error = "Claim is already paid" });
-
-                if (request.ApprovedAmount > (claim.Policy?.SumInsured ?? 0))
-                    return BadRequest(new { error = $"Approved amount cannot exceed policy sum insured ({claim.Policy?.SumInsured})" });
-
-                claim.Status = ClaimStatus.Approved;
-                claim.ApprovedAmount = request.ApprovedAmount;
-                claim.ReviewedBy = adminEmail;
-                claim.ReviewedByUserId = adminId;
-                claim.ReviewedAt = DateTime.UtcNow;
-                claim.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Claim {ClaimId} approved by {Admin} for amount {Amount}",
-                    claimId, adminEmail, request.ApprovedAmount);
-
-                await _notificationService.SendClaimUpdateAsync(claim.UserId, new ClaimNotificationDto
+                var userId = await GetClaimUserId(claimId);
+                if (userId.HasValue)
                 {
-                    ClaimId = claimId,
-                    Status = ClaimStatus.Approved,
-                    Title = "Claim Approved",
-                    Message = $"Your claim has been approved. Payout: {request.ApprovedAmount:C}",
-                    NotificationType = "StatusChanged",
-                    ApprovedAmount = request.ApprovedAmount
-                });
+                    await _notificationService.SendClaimUpdateAsync(userId.Value, new ClaimNotificationDto
+                    {
+                        ClaimId = claimId,
+                        Status = ClaimStatus.Approved,
+                        Title = "Claim Approved",
+                        Message = $"Your claim has been approved. Payout: {request.ApprovedAmount:C}",
+                        NotificationType = "StatusChanged",
+                        ApprovedAmount = request.ApprovedAmount
+                    });
+                }
 
                 return Ok(new
                 {
                     message = "Claim approved successfully",
-                    claimId = claim.Id,
-                    approvedAmount = claim.ApprovedAmount,
-                    reviewedBy = claim.ReviewedBy,
-                    reviewedAt = claim.ReviewedAt
+                    claimId,
+                    approvedAmount = request.ApprovedAmount
                 });
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new { error = ex.Errors.FirstOrDefault() });
             }
             catch (Exception ex)
             {
@@ -190,54 +172,39 @@ namespace FarmClaim.API.Controllers
         {
             try
             {
-                var adminEmail = GetAdminEmail();
                 var adminId = GetAdminId();
+                var adminEmail = GetAdminEmail();
 
-                var claim = await _context.Claims
-                    .FirstOrDefaultAsync(c => c.Id == claimId && !c.IsDeleted);
+                await _mediator.Send(new RejectClaimCommand(claimId, adminId, adminEmail, request));
 
-                if (claim == null)
-                    return NotFound(new { error = "Claim not found" });
-
-                if (claim.Status == ClaimStatus.Approved)
-                    return BadRequest(new { error = "Cannot reject an approved claim" });
-
-                if (claim.Status == ClaimStatus.Rejected)
-                    return BadRequest(new { error = "Claim is already rejected" });
-
-                if (claim.Status == ClaimStatus.Paid)
-                    return BadRequest(new { error = "Cannot reject a paid claim" });
-
-                claim.Status = ClaimStatus.Rejected;
-                claim.RejectionReason = request.RejectionReason?.Trim();
-                claim.ReviewedBy = adminEmail;
-                claim.ReviewedByUserId = adminId;
-                claim.ReviewedAt = DateTime.UtcNow;
-                claim.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Claim {ClaimId} rejected by {Admin}. Reason: {Reason}",
-                    claimId, adminEmail, request.RejectionReason);
-
-                await _notificationService.SendClaimUpdateAsync(claim.UserId, new ClaimNotificationDto
+                var userId = await GetClaimUserId(claimId);
+                if (userId.HasValue)
                 {
-                    ClaimId = claimId,
-                    Status = ClaimStatus.Rejected,
-                    Title = "Claim Rejected",
-                    Message = $"Your claim has been rejected. Reason: {request.RejectionReason}",
-                    NotificationType = "StatusChanged",
-                    RejectionReason = request.RejectionReason
-                });
+                    await _notificationService.SendClaimUpdateAsync(userId.Value, new ClaimNotificationDto
+                    {
+                        ClaimId = claimId,
+                        Status = ClaimStatus.Rejected,
+                        Title = "Claim Rejected",
+                        Message = $"Your claim has been rejected. Reason: {request.RejectionReason}",
+                        NotificationType = "StatusChanged",
+                        RejectionReason = request.RejectionReason
+                    });
+                }
 
                 return Ok(new
                 {
                     message = "Claim rejected successfully",
-                    claimId = claim.Id,
-                    status = claim.Status,
-                    rejectionReason = claim.RejectionReason,
-                    reviewedBy = claim.ReviewedBy
+                    claimId,
+                    rejectionReason = request.RejectionReason
                 });
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new { error = ex.Errors.FirstOrDefault() });
             }
             catch (Exception ex)
             {
@@ -255,17 +222,17 @@ namespace FarmClaim.API.Controllers
                 var adminId = GetAdminId();
                 var result = await _mediator.Send(new PayClaimCommand(claimId, adminId, request));
 
-                var claim = await _context.Claims.FirstOrDefaultAsync(c => c.Id == claimId);
-                if (claim != null)
+                var userId = await GetClaimUserId(claimId);
+                if (userId.HasValue)
                 {
-                    await _notificationService.SendClaimUpdateAsync(claim.UserId, new ClaimNotificationDto
+                    var claimResult = result as dynamic;
+                    await _notificationService.SendClaimUpdateAsync(userId.Value, new ClaimNotificationDto
                     {
                         ClaimId = claimId,
                         Status = ClaimStatus.Paid,
                         Title = "Claim Paid",
-                        Message = $"Your claim payout of {claim.ApprovedAmount:C} has been processed.",
-                        NotificationType = "StatusChanged",
-                        ApprovedAmount = claim.ApprovedAmount
+                        Message = $"Your claim payout has been processed.",
+                        NotificationType = "StatusChanged"
                     });
                 }
 
@@ -284,6 +251,12 @@ namespace FarmClaim.API.Controllers
                 _logger.LogError(ex, "Failed to pay claim {ClaimId}", claimId);
                 return HandleError(ex);
             }
+        }
+
+        private async Task<Guid?> GetClaimUserId(Guid claimId)
+        {
+            var claim = await _mediator.Send(new GetClaimDetailQuery(claimId));
+            return claim?.UserId;
         }
     }
 }

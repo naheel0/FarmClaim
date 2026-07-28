@@ -23,6 +23,7 @@ namespace FarmClaim.API.Controllers
             IMediator mediator,
             INotificationService notificationService,
             ILogger<AdminPoliciesController> logger)
+            : base(logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));

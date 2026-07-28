@@ -14,6 +14,7 @@ namespace FarmClaim.API.Controllers
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
+    [Authorize]
     public class FarmersController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -104,6 +105,8 @@ namespace FarmClaim.API.Controllers
             [FromQuery] int pageSize = 20,
             [FromQuery] string? searchTerm = null)
         {
+            pageSize = Math.Clamp(pageSize, 1, 100);
+            pageNumber = Math.Max(1, pageNumber);
             var query = new GetAllFarmersQuery(pageNumber, pageSize, searchTerm);
             var result = await _mediator.Send(query);
             return Ok(result);

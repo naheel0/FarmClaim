@@ -71,6 +71,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.ProcessWebhookEvent
             if (paymentDto == null) return;
 
             var payment = await _context.Payments
+                .Include(p => p.Policy)
                 .FirstOrDefaultAsync(p => p.OrderId == paymentDto.OrderId, ct);
 
             if (payment == null)
@@ -92,6 +93,14 @@ namespace FarmClaim.Application.Features.Payments.Commands.ProcessWebhookEvent
             payment.Method = paymentDto.Method;
             payment.Fee = paymentDto.Fee.HasValue ? paymentDto.Fee.Value / 100m : null;
             payment.Tax = paymentDto.Tax.HasValue ? paymentDto.Tax.Value / 100m : null;
+
+            // Auto-activate the policy after successful payment
+            if (payment.Policy != null && payment.Policy.Status == PolicyStatus.Pending)
+            {
+                payment.Policy.Status = PolicyStatus.Active;
+                payment.Policy.ApprovedAt = DateTime.UtcNow;
+                _logger.LogInformation("Webhook: Policy {PolicyId} auto-activated after payment", payment.PolicyId);
+            }
 
             await _context.SaveChangesAsync(ct);
             _logger.LogInformation("✅ Webhook: Payment {PaymentId} marked as Captured", payment.Id);

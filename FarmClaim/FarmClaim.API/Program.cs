@@ -1,3 +1,4 @@
+using FarmClaim.API.Hubs;
 using FarmClaim.API.Middleware;
 using FarmClaim.Application.Common.Behaviors;
 using FarmClaim.Application.Common.Interfaces;
@@ -5,7 +6,6 @@ using FarmClaim.Infrastructure.Data;
 using FarmClaim.Infrastructure.JWT;
 using FluentValidation;
 using Hangfire;
-using Hangfire.Dashboard;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.CookiePolicy;
@@ -18,7 +18,6 @@ using Polly;
 using Polly.Extensions.Http;
 using System.Text;
 using System.Threading.RateLimiting;
-using FarmClaim.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,7 +43,7 @@ builder.Services.AddScoped<IFileStorageService, FarmClaim.Infrastructure.Service
 // AUDIT LOGGING (Task #7)
 // ============================================
 builder.Services.AddScoped<IAuditService, FarmClaim.Infrastructure.Data.Audit.AuditService>();
-builder.Services.AddSingleton<ISaveChangesInterceptor, FarmClaim.Infrastructure.Data.Audit.AuditSaveChangesInterceptor>();
+builder.Services.AddScoped<ISaveChangesInterceptor, FarmClaim.Infrastructure.Data.Audit.AuditSaveChangesInterceptor>();
 
 // ============================================
 // RATE LIMITING REGISTRATION (Task #5)
@@ -63,6 +62,9 @@ builder.Services.AddHttpClient<IGeminiVisionService, FarmClaim.Infrastructure.Se
     client.BaseAddress = new Uri("https://generativelanguage.googleapis.com");
 })
 .AddPolicyHandler(GetRetryPolicy("Gemini Vision API", 3));
+
+// Separate HttpClient for downloading images (no API key attached)
+builder.Services.AddHttpClient("GeminiDownload");
 
 // ============================================
 // MEDIATR (CQRS)
@@ -132,7 +134,7 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(secretKey),
-        ClockSkew = TimeSpan.Zero
+        ClockSkew = TimeSpan.FromSeconds(30)
     };
 
     options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
@@ -227,10 +229,10 @@ builder.Services.AddHttpClient("ElasticEmail", client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
-builder.Services.AddSingleton<FarmClaim.Application.Common.Interfaces.IEmailService,
+builder.Services.AddScoped<FarmClaim.Application.Common.Interfaces.IEmailService,
     FarmClaim.Infrastructure.Services.SmtpEmailService>();
 
-builder.Services.AddSingleton<FarmClaim.Application.Common.Interfaces.IEmailQueueService,
+builder.Services.AddScoped<FarmClaim.Application.Common.Interfaces.IEmailQueueService,
     FarmClaim.Infrastructure.Email.Services.EmailQueueService>();
 
 builder.Services.AddScoped<FarmClaim.Infrastructure.Email.Services.EmailJob>();
@@ -390,88 +392,76 @@ else
 }
 
 app.UseExceptionHandling();
+app.UseHttpsRedirection();
+app.UseRouting();
+app.UseCookiePolicy();
+app.UseCors("AllowFrontend");
+app.UseAuthentication();
+app.UseRateLimiter();
+app.UseAuthorization();
 
-// ✅ FIX #4: Hangfire dashboard secured (Admin only)
+// ✅ FIX: Hangfire dashboard AFTER UseAuthorization (requires auth to work)
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     Authorization = new[] { new AdminOnlyHangfireAuthorization() },
     DashboardTitle = "FarmClaim Jobs"
 });
-
-app.UseHttpsRedirection();
-app.UseRouting();
-app.UseCookiePolicy();
-app.UseCors("AllowFrontend");
-app.UseRateLimiter();
-app.UseAuthentication();
-app.UseAuthorization();
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
 
 // ============================================
-// AUTO-MIGRATE DATABASE ON STARTUP
+// DATABASE MIGRATIONS
+// In production, use CI/CD: dotnet ef database update --project FarmClaim.Infrastructure
+// In development, auto-apply pending migrations for convenience.
 // ============================================
-using (var scope = app.Services.CreateScope())
+if (app.Environment.IsDevelopment())
 {
-    var services = scope.ServiceProvider;
-    try
+    using (var scope = app.Services.CreateScope())
     {
-        var db = services.GetRequiredService<ApplicationDbContext>();
-        var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
-        if (pendingMigrations.Any())
+        var services = scope.ServiceProvider;
+        try
         {
-            await db.Database.MigrateAsync();
-            Console.WriteLine("✅ Database migrations applied successfully!");
+            var db = services.GetRequiredService<ApplicationDbContext>();
+            var pendingMigrations = await db.Database.GetPendingMigrationsAsync();
+            if (pendingMigrations.Any())
+            {
+                await db.Database.MigrateAsync();
+                Console.WriteLine("Database migrations applied successfully.");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            Console.WriteLine("✅ Database is up to date.");
+            Console.WriteLine($"Migration failed: {ex.Message}");
+            throw;
         }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"❌ Migration failed: {ex.Message}");
-        throw;
     }
 }
 
 // ============================================
-// SCHEDULE RECURRING JOBS (Task #4 + Fix #5)
+// SCHEDULE RECURRING JOBS
+// Hangfire resolves services from its own DI scope at execution time.
 // ============================================
-using (var scope = app.Services.CreateScope())
-{
-    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+RecurringJob.AddOrUpdate<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>(
+    "expire-policies-daily",
+    job => job.ExpirePoliciesAsync(),
+    Cron.Daily(1, 0));
 
-    // 1. Expire policies — daily at 1:00 AM UTC
-    recurringJobManager.AddOrUpdate(
-        "expire-policies-daily",
-        () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
-                                  .ExpirePoliciesAsync(),
-        Cron.Daily(1, 0));
+RecurringJob.AddOrUpdate<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>(
+    "cleanup-tokens-daily",
+    job => job.CleanupExpiredTokensAsync(),
+    Cron.Daily(2, 0));
 
-    // 2. Cleanup expired tokens — daily at 2:00 AM UTC
-    recurringJobManager.AddOrUpdate(
-        "cleanup-tokens-daily",
-        () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
-                                  .CleanupExpiredTokensAsync(),
-        Cron.Daily(2, 0));
+RecurringJob.AddOrUpdate<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>(
+    "policy-expiry-reminder-daily",
+    job => job.SendPolicyExpiryRemindersAsync(),
+    Cron.Daily(9, 0));
 
-    // 3. Policy expiry reminders — daily at 9:00 AM UTC
-    recurringJobManager.AddOrUpdate(
-        "policy-expiry-reminder-daily",
-        () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
-                                  .SendPolicyExpiryRemindersAsync(),
-        Cron.Daily(9, 0));
+RecurringJob.AddOrUpdate<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>(
+    "cancel-stale-policies-weekly",
+    job => job.CancelStalePendingPoliciesAsync(),
+    Cron.Weekly(DayOfWeek.Sunday, 3, 0));
 
-    // 4. ✅ FIX #5: Cancel stale pending policies — weekly Sunday at 3:00 AM UTC
-    recurringJobManager.AddOrUpdate(
-        "cancel-stale-policies-weekly",
-        () => scope.ServiceProvider.GetRequiredService<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>()
-                                  .CancelStalePendingPoliciesAsync(),
-        Cron.Weekly(DayOfWeek.Sunday, 3, 0));
-
-    Console.WriteLine("✅ Recurring jobs scheduled: expire-policies, cleanup-tokens, expiry-reminder, cancel-stale-policies");
-}
+Console.WriteLine("Recurring jobs scheduled: expire-policies, cleanup-tokens, expiry-reminder, cancel-stale-policies");
 
 Console.WriteLine("🚀 FarmClaim API starting...");
 await app.RunAsync();

@@ -1,4 +1,6 @@
-﻿using FarmClaim.Application.Common.Exceptions;
+﻿using System.Security.Cryptography;
+using System.Text;
+using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Auth.DTOs;
 using FarmClaim.Domain.Entities;
@@ -79,6 +81,7 @@ namespace FarmClaim.Application.Features.Auth.Commands.Login
         {
             var accessToken = _jwtService.GenerateAccessToken(user);
             var refreshTokenValue = _jwtService.GenerateRefreshToken();
+            var refreshTokenHash = HashToken(refreshTokenValue);
 
             if (user.RefreshToken != null)
             {
@@ -90,7 +93,7 @@ namespace FarmClaim.Application.Features.Auth.Commands.Login
             var newRefreshTokenEntity = new RefreshTokenEntity
             {
                 UserId = user.Id,
-                Token = refreshTokenValue,
+                Token = refreshTokenHash,
                 ExpiresAt = DateTime.UtcNow.AddDays(7),
                 CreatedAt = DateTime.UtcNow
             };
@@ -113,6 +116,12 @@ namespace FarmClaim.Application.Features.Auth.Commands.Login
                     PhoneNumber = user.PhoneNumber
                 }
             };
+        }
+
+        private static string HashToken(string token)
+        {
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+            return Convert.ToHexString(bytes);
         }
     }
 }

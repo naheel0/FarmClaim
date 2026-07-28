@@ -26,7 +26,7 @@ namespace FarmClaim.Application.Features.Farms.Queries.GetMyFarms
 
             var query = _context.Farms
                 .AsNoTracking()
-                .Where(f => f.UserId == request.UserId);
+                .Where(f => f.UserId == request.UserId && !f.IsDeleted);
 
             if (!string.IsNullOrWhiteSpace(request.SearchTerm))
             {

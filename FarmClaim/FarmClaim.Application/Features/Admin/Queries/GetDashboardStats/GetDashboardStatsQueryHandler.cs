@@ -20,106 +20,136 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetDashboardStats
 
         public async Task<DashboardStatsDto> Handle(GetDashboardStatsQuery request, CancellationToken ct)
         {
-            var claims = await _context.Claims
-                .AsNoTracking()
-                .Include(c => c.Policy)
-                .Include(c => c.Farm).ThenInclude(f => f!.User)
-                .Include(c => c.Images)
-                .Where(c => !c.IsDeleted)
+            // --- Claim counts (SQL aggregation) ---
+            var totalClaims = await _context.Claims.AsNoTracking().CountAsync(c => !c.IsDeleted, ct);
+            var pendingClaims = await _context.Claims.AsNoTracking().CountAsync(c => !c.IsDeleted && c.Status == ClaimStatus.Pending, ct);
+            var approvedClaims = await _context.Claims.AsNoTracking().CountAsync(c => !c.IsDeleted && c.Status == ClaimStatus.Approved, ct);
+            var rejectedClaims = await _context.Claims.AsNoTracking().CountAsync(c => !c.IsDeleted && c.Status == ClaimStatus.Rejected, ct);
+            var underReviewClaims = await _context.Claims.AsNoTracking().CountAsync(c => !c.IsDeleted && c.Status == ClaimStatus.UnderReview, ct);
+            var paidClaims = await _context.Claims.AsNoTracking().CountAsync(c => !c.IsDeleted && c.Status == ClaimStatus.Paid, ct);
+
+            // --- Payout amounts (SQL aggregation) ---
+            var totalPayoutAmount = await _context.Claims.AsNoTracking()
+                .Where(c => !c.IsDeleted && c.Status == ClaimStatus.Approved && c.ApprovedAmount.HasValue)
+                .SumAsync(c => c.ApprovedAmount!.Value, ct);
+
+            // Pending payout = sum of approved amounts for claims that are still pending (estimated)
+            var pendingPayoutAmount = await _context.Claims.AsNoTracking()
+                .Where(c => !c.IsDeleted && c.Status == ClaimStatus.Pending && c.ApprovedAmount.HasValue)
+                .SumAsync(c => c.ApprovedAmount!.Value, ct);
+
+            // --- Claim metadata counts (SQL) ---
+            var claimsWithImages = await _context.ClaimImages.AsNoTracking()
+                .CountAsync(i => !i.IsDeleted && _context.Claims.Any(c => c.Id == i.ClaimId && !c.IsDeleted), ct);
+            var claimsWithAIAnalysis = await _context.Claims.AsNoTracking()
+                .CountAsync(c => !c.IsDeleted && c.AIAnalysisResult != null, ct);
+            var claimsWithWeatherData = await _context.Claims.AsNoTracking()
+                .CountAsync(c => !c.IsDeleted && c.WeatherSnapshot != null, ct);
+
+            // --- Average processing days (fetch only reviewed claims for averaging) ---
+            var reviewedClaims = await _context.Claims.AsNoTracking()
+                .Where(c => !c.IsDeleted && c.Status == ClaimStatus.Approved && c.ReviewedAt.HasValue)
+                .Select(c => new { c.CreatedAt, c.ReviewedAt })
                 .ToListAsync(ct);
 
-            var approved = claims.Where(c => c.Status == ClaimStatus.Approved).ToList();
-            var pending = claims.Where(c => c.Status == ClaimStatus.Pending).ToList();
+            var avgProcessingDays = reviewedClaims.Count > 0
+                ? reviewedClaims.Average(c => (c.ReviewedAt!.Value - c.CreatedAt).TotalDays)
+                : 0;
 
-            // NEW: Policy stats
-            var policies = await _context.InsurancePolicies
-                .AsNoTracking()
-                .Where(p => !p.IsDeleted)
-                .ToListAsync(ct);
+            // --- Policy counts (SQL aggregation) ---
+            var totalPolicies = await _context.InsurancePolicies.AsNoTracking().CountAsync(p => !p.IsDeleted, ct);
+            var pendingPolicies = await _context.InsurancePolicies.AsNoTracking().CountAsync(p => !p.IsDeleted && p.Status == PolicyStatus.Pending, ct);
+            var activePolicies = await _context.InsurancePolicies.AsNoTracking().CountAsync(p => !p.IsDeleted && p.Status == PolicyStatus.Active, ct);
+            var rejectedPolicies = await _context.InsurancePolicies.AsNoTracking().CountAsync(p => !p.IsDeleted && p.Status == PolicyStatus.Rejected, ct);
+            var expiredPolicies = await _context.InsurancePolicies.AsNoTracking().CountAsync(p => !p.IsDeleted && p.Status == PolicyStatus.Expired, ct);
 
-            // NEW: User & Farm stats
-            var totalFarmers = await _context.Users
-                .AsNoTracking()
+            // --- User & Farm counts (SQL aggregation) ---
+            var totalFarmers = await _context.Users.AsNoTracking()
                 .CountAsync(u => u.Role == UserRole.Farmer && !u.IsDeleted, ct);
-
-            var totalFarms = await _context.Farms
-                .AsNoTracking()
+            var totalFarms = await _context.Farms.AsNoTracking()
                 .CountAsync(f => !f.IsDeleted, ct);
 
-            var incidentBreakdown = claims
-                .GroupBy(c => c.IncidentType.ToString())
+            // --- Incident breakdown (SQL GroupBy) ---
+            var incidentBreakdown = await _context.Claims.AsNoTracking()
+                .Where(c => !c.IsDeleted)
+                .GroupBy(c => c.IncidentType)
                 .Select(g => new IncidentTypeBreakdown
                 {
-                    IncidentType = g.Key,
+                    IncidentType = g.Key.ToString(),
                     Count = g.Count(),
                     TotalClaimed = g.Where(c => c.ApprovedAmount.HasValue).Sum(c => c.ApprovedAmount!.Value)
-                }).OrderByDescending(x => x.Count).ToList();
+                })
+                .OrderByDescending(x => x.Count)
+                .ToListAsync(ct);
 
-            var monthlyTrends = claims
+            // --- Monthly trends (SQL GroupBy) ---
+            var monthlyTrends = await _context.Claims.AsNoTracking()
+                .Where(c => !c.IsDeleted)
                 .GroupBy(c => new { c.CreatedAt.Year, c.CreatedAt.Month })
                 .Select(g => new MonthlyTrend
                 {
                     Month = $"{g.Key.Year}-{g.Key.Month:D2}",
                     Claims = g.Count(),
                     Amount = g.Where(c => c.ApprovedAmount.HasValue).Sum(c => c.ApprovedAmount!.Value)
-                }).OrderByDescending(x => x.Month).Take(12).ToList();
-
-            var topFarms = claims
-                .GroupBy(c => new
-                {
-                    c.FarmId,
-                    FarmName = c.Farm!.Name,
-                    FarmerName = c.Farm.User != null
-                        ? c.Farm.User.FirstName + " " + c.Farm.User.LastName
-                        : "Unknown"
                 })
-                .Select(g => new TopFarmDto
+                .OrderByDescending(x => x.Month)
+                .Take(12)
+                .ToListAsync(ct);
+
+            // --- Top farms by claim count (SQL GroupBy) ---
+            var topFarmClaims = await _context.Claims.AsNoTracking()
+                .Where(c => !c.IsDeleted && c.Farm != null)
+                .GroupBy(c => new { c.FarmId, c.Farm!.Name })
+                .Select(g => new
                 {
                     FarmId = g.Key.FarmId,
-                    FarmName = g.Key.FarmName,
-                    FarmerName = g.Key.FarmerName,
+                    FarmName = g.Key.Name,
                     ClaimCount = g.Count(),
                     TotalClaimed = g.Where(c => c.ApprovedAmount.HasValue).Sum(c => c.ApprovedAmount!.Value)
-                }).OrderByDescending(x => x.ClaimCount).Take(5).ToList();
+                })
+                .OrderByDescending(x => x.ClaimCount)
+                .Take(5)
+                .ToListAsync(ct);
 
-            double avgDays = 0;
-            if (approved.Count > 0)
+            var topFarmIds = topFarmClaims.Select(t => t.FarmId).ToList();
+            var farmOwnerNames = await _context.Farms.AsNoTracking()
+                .Where(f => topFarmIds.Contains(f.Id) && f.User != null)
+                .Select(f => new { f.Id, OwnerName = f.User!.FirstName + " " + f.User.LastName })
+                .ToDictionaryAsync(f => f.Id, f => f.OwnerName, ct);
+
+            var topFarms = topFarmClaims.Select(t => new TopFarmDto
             {
-                var reviewed = approved.Where(c => c.ReviewedAt.HasValue).ToList();
-                if (reviewed.Count > 0)
-                    avgDays = reviewed.Average(c => (c.ReviewedAt!.Value - c.CreatedAt).TotalDays);
-            }
+                FarmId = t.FarmId,
+                FarmName = t.FarmName,
+                FarmerName = farmOwnerNames.TryGetValue(t.FarmId, out var name) ? name : "",
+                ClaimCount = t.ClaimCount,
+                TotalClaimed = t.TotalClaimed
+            }).ToList();
 
             return new DashboardStatsDto
             {
-                // Claim stats (existing)
-                TotalClaims = claims.Count,
-                PendingClaims = pending.Count,
-                ApprovedClaims = approved.Count,
-                RejectedClaims = claims.Count(c => c.Status == ClaimStatus.Rejected),
-                UnderReviewClaims = claims.Count(c => c.Status == ClaimStatus.UnderReview),
-                PaidClaims = claims.Count(c => c.Status == ClaimStatus.Paid),
-                TotalPayoutAmount = approved.Sum(c => c.ApprovedAmount ?? 0),
-                PendingPayoutAmount = pending
-                    .Where(c => c.Policy != null)
-                    .Sum(c => c.Policy!.SumInsured),
-                ClaimsWithImages = claims.Count(c => c.Images.Any(i => !i.IsDeleted)),
-                ClaimsWithAIAnalysis = claims.Count(c => c.AIAnalysisResult != null),
-                ClaimsWithWeatherData = claims.Count(c => c.WeatherSnapshot != null),
-                AverageProcessingDays = (decimal)Math.Round(avgDays, 1),
+                TotalClaims = totalClaims,
+                PendingClaims = pendingClaims,
+                ApprovedClaims = approvedClaims,
+                RejectedClaims = rejectedClaims,
+                UnderReviewClaims = underReviewClaims,
+                PaidClaims = paidClaims,
+                TotalPayoutAmount = totalPayoutAmount,
+                PendingPayoutAmount = pendingPayoutAmount,
+                ClaimsWithImages = claimsWithImages,
+                ClaimsWithAIAnalysis = claimsWithAIAnalysis,
+                ClaimsWithWeatherData = claimsWithWeatherData,
+                AverageProcessingDays = (decimal)Math.Round(avgProcessingDays, 1),
 
-                // NEW: Policy stats
-                TotalPolicies = policies.Count,
-                PendingPolicies = policies.Count(p => p.Status == PolicyStatus.Pending),
-                ActivePolicies = policies.Count(p => p.Status == PolicyStatus.Active),
-                RejectedPolicies = policies.Count(p => p.Status == PolicyStatus.Rejected),
-                ExpiredPolicies = policies.Count(p => p.Status == PolicyStatus.Expired),
+                TotalPolicies = totalPolicies,
+                PendingPolicies = pendingPolicies,
+                ActivePolicies = activePolicies,
+                RejectedPolicies = rejectedPolicies,
+                ExpiredPolicies = expiredPolicies,
 
-                // NEW: User & Farm stats
                 TotalFarmers = totalFarmers,
                 TotalFarms = totalFarms,
 
-                // Existing
                 IncidentBreakdown = incidentBreakdown,
                 MonthlyTrends = monthlyTrends,
                 TopFarms = topFarms

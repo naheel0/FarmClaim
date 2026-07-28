@@ -53,6 +53,20 @@ namespace FarmClaim.Application.Features.Payments.Commands.VerifyPayment
                     $"Payment already captured on {payment.CapturedAt:yyyy-MM-dd HH:mm} UTC."
                 });
 
+            // Reject verification of expired orders (15-minute window)
+            if (payment.CreatedAt.AddMinutes(15) < DateTime.UtcNow)
+            {
+                payment.Status = PaymentStatus.Expired;
+                payment.FailureReason = "Payment order expired (15-minute window exceeded)";
+                payment.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync(ct);
+
+                throw new ValidationException(new List<string>
+                {
+                    "Payment order has expired. Please create a new order."
+                });
+            }
+
             var isValid = await _paymentService.VerifySignatureAsync(
                 cmd.Request.RazorpayOrderId,
                 cmd.Request.RazorpayPaymentId,
@@ -83,6 +97,13 @@ namespace FarmClaim.Application.Features.Payments.Commands.VerifyPayment
             payment.Signature = cmd.Request.RazorpaySignature;
             payment.Status = PaymentStatus.Captured;
             payment.CapturedAt = DateTime.UtcNow;
+
+            // Auto-activate the policy after successful payment
+            if (payment.Policy != null && payment.Policy.Status == PolicyStatus.Pending)
+            {
+                payment.Policy.Status = PolicyStatus.Active;
+                _logger.LogInformation("Policy {PolicyId} auto-activated after payment", payment.PolicyId);
+            }
 
             if (details != null)
             {

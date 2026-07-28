@@ -1,4 +1,6 @@
-﻿using FarmClaim.Application.Features.AuditLogs.Queries.GetAuditLogs;
+﻿using FarmClaim.Application.Common.Exceptions;
+using FarmClaim.Application.Features.AuditLogs.Queries.GetAuditLogById;
+using FarmClaim.Application.Features.AuditLogs.Queries.GetAuditLogs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -34,6 +36,8 @@ namespace FarmClaim.API.Controllers
         {
             try
             {
+                pageSize = Math.Clamp(pageSize, 1, 100);
+                pageNumber = Math.Max(1, pageNumber);
                 var result = await _mediator.Send(new GetAuditLogsQuery(
                     pageNumber, pageSize, userId, entityType, action, fromDate, toDate, searchTerm));
                 return Ok(result);
@@ -42,6 +46,25 @@ namespace FarmClaim.API.Controllers
             {
                 _logger.LogError(ex, "Failed to load audit logs");
                 return StatusCode(500, new { error = "Failed to load audit logs" });
+            }
+        }
+        // GET /api/v1/Admin/AuditLogs/{logId}
+        [HttpGet("{logId}")]
+        public async Task<IActionResult> GetAuditLogById(Guid logId)
+        {
+            try
+            {
+                var result = await _mediator.Send(new GetAuditLogByIdQuery(logId));
+                return Ok(result);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load audit log {LogId}", logId);
+                return StatusCode(500, new { error = "Failed to load audit log" });
             }
         }
     }

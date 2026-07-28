@@ -32,7 +32,6 @@ namespace FarmClaim.Infrastructure.Data.Configurations
             b.HasIndex(a => new { a.EntityType, a.EntityId });
             // === NEW INDEXES ===
             b.HasIndex(a => a.CorrelationId);
-            b.HasIndex(a => a.Timestamp);
         }
     }
 }

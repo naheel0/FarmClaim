@@ -14,14 +14,8 @@ namespace FarmClaim.Application.Features.InsurancePolicies.DTOs
         [MaxLength(100, ErrorMessage = "Crop type cannot exceed 100 characters")]
         public string? CropType { get; set; }
 
-        [Range(0.01, double.MaxValue, ErrorMessage = "Coverage amount must be greater than 0")]
-        public decimal? CoverageAmount { get; set; }
-
-        [Range(0.01, double.MaxValue, ErrorMessage = "Premium must be greater than 0")]
-        public decimal? Premium { get; set; }
-
-        [Range(0.01, double.MaxValue, ErrorMessage = "Sum insured must be greater than 0")]
-        public decimal? SumInsured { get; set; }
+        // Financial fields (CoverageAmount, Premium, SumInsured) are intentionally excluded.
+        // They are set by the admin and must not be user-editable.
 
         public DateTime? StartDate { get; set; }
 

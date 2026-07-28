@@ -1,6 +1,7 @@
 ﻿using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Domain.Entities;
+using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -31,6 +32,20 @@ namespace FarmClaim.Application.Features.Farms.Commands.DeleteFarm
             {
                 _logger.LogWarning("Farm not found: {FarmId} or not owned by user: {UserId}", command.FarmId, command.UserId);
                 throw new NotFoundException(nameof(Farm), command.FarmId);
+            }
+
+            // Block deletion if farm has active or pending policies
+            var hasActivePolicies = await _context.InsurancePolicies
+                .AnyAsync(p => p.FarmId == farm.Id
+                    && !p.IsDeleted
+                    && (p.Status == PolicyStatus.Active || p.Status == PolicyStatus.Pending), ct);
+
+            if (hasActivePolicies)
+            {
+                throw new ValidationException(new List<string>
+                {
+                    "Cannot delete a farm with active or pending insurance policies. Cancel or let policies expire first."
+                });
             }
 
             // Soft delete

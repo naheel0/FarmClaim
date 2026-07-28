@@ -27,6 +27,8 @@ namespace FarmClaim.API.Controllers
             [FromQuery] string? searchTerm = null,
             [FromQuery] string? cropType = null)
         {
+            pageSize = Math.Clamp(pageSize, 1, 100);
+            pageNumber = Math.Max(1, pageNumber);
             var result = await _mediator.Send(new GetAllPlansQuery(
                 pageNumber, pageSize, searchTerm, cropType, null, AdminContext: false));
             return Ok(result);

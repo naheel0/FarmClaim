@@ -48,9 +48,7 @@ namespace FarmClaim.API.Controllers
                 version = "1.0.0",
                 environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production",
                 timestamp = DateTime.UtcNow,
-                uptimeSeconds = (int)(DateTime.UtcNow - _startTime).TotalSeconds,
-                machineName = Environment.MachineName,
-                processId = Environment.ProcessId
+                uptimeSeconds = (int)(DateTime.UtcNow - _startTime).TotalSeconds
             });
         }
 
@@ -125,7 +123,7 @@ namespace FarmClaim.API.Controllers
                 {
                     status = "Healthy",
                     dependency = "Database",
-                    database = _dbContext.Database.GetDbConnection().Database,
+                    database = "Connected",
                     durationMs = Math.Round(sw.Elapsed.TotalMilliseconds, 2)
                 });
             }
@@ -137,7 +135,7 @@ namespace FarmClaim.API.Controllers
                 {
                     status = "Unhealthy",
                     dependency = "Database",
-                    error = ex.Message,
+                    error = "Database connection failed",
                     durationMs = Math.Round(sw.Elapsed.TotalMilliseconds, 2)
                 });
             }

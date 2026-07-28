@@ -18,5 +18,10 @@ namespace FarmClaim.Application.Features.AuditLogs.DTOs
         public string? UserAgent { get; init; }
         public string? Description { get; init; }
         public DateTime Timestamp { get; init; }
+
+        // ✅ NEW: HTTP context tracking (matches AuditLog entity)
+        public string? CorrelationId { get; init; }
+        public string? HttpMethod { get; init; }
+        public string? HttpPath { get; init; }
     }
 }

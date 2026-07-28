@@ -40,8 +40,11 @@ namespace FarmClaim.Infrastructure.Services
             if (string.IsNullOrEmpty(_settings.KeyId) || string.IsNullOrEmpty(_settings.KeySecret))
                 throw new InvalidOperationException("Razorpay KeyId/KeySecret not configured.");
 
-            // Dummy mode for local dev (no real API call)
-            if (_settings.DummyMode)
+            // Dummy mode for local dev only — force disable in production via env var
+            var isProduction = string.Equals(
+                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
+                "Production", StringComparison.OrdinalIgnoreCase);
+            if (_settings.DummyMode && !isProduction)
             {
                 _logger.LogInformation("DUMMY: Creating Razorpay order for amount {Amount}", amountInRupees);
                 return new CreateOrderResponseDto
@@ -111,7 +114,10 @@ namespace FarmClaim.Infrastructure.Services
         // ============================================
         public Task<bool> VerifySignatureAsync(string orderId, string paymentId, string signature)
         {
-            if (_settings.DummyMode)
+            var isProduction = string.Equals(
+                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
+                "Production", StringComparison.OrdinalIgnoreCase);
+            if (_settings.DummyMode && !isProduction)
             {
                 _logger.LogInformation("DUMMY: Skipping signature verification");
                 return Task.FromResult(true);
@@ -125,13 +131,13 @@ namespace FarmClaim.Infrastructure.Services
             var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
             var computedSignature = Convert.ToHexString(computedHash).ToLower();
 
-            var isValid = computedSignature == signature.ToLower();
+            var computedBytes = Encoding.UTF8.GetBytes(computedSignature);
+            var receivedBytes = Encoding.UTF8.GetBytes(signature.ToLower());
+            var isValid = CryptographicOperations.FixedTimeEquals(computedBytes, receivedBytes);
 
             if (!isValid)
             {
                 _logger.LogWarning("Signature mismatch for Order {OrderId}", orderId);
-                _logger.LogDebug("Expected: {Expected}", signature);
-                _logger.LogDebug("Computed: {Computed}", computedSignature);
             }
 
             return Task.FromResult(isValid);
@@ -142,7 +148,10 @@ namespace FarmClaim.Infrastructure.Services
         // ============================================
         public async Task<PaymentDetailsDto> FetchPaymentDetailsAsync(string paymentId)
         {
-            if (_settings.DummyMode)
+            var isProduction = string.Equals(
+                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
+                "Production", StringComparison.OrdinalIgnoreCase);
+            if (_settings.DummyMode && !isProduction)
             {
                 return new PaymentDetailsDto
                 {
@@ -257,7 +266,9 @@ namespace FarmClaim.Infrastructure.Services
             var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
             var computedSignature = Convert.ToHexString(computedHash).ToLower();
 
-            var isValid = computedSignature == signature.ToLower();
+            var computedBytes = Encoding.UTF8.GetBytes(computedSignature);
+            var receivedBytes = Encoding.UTF8.GetBytes(signature.ToLower());
+            var isValid = CryptographicOperations.FixedTimeEquals(computedBytes, receivedBytes);
 
             if (!isValid)
             {

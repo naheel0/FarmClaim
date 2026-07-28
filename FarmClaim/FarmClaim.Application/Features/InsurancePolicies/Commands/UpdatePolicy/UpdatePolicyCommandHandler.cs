@@ -65,23 +65,8 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.UpdatePolicy
                 hasChanges = true;
             }
 
-            if (command.Request.CoverageAmount.HasValue)
-            {
-                policy.CoverageAmount = command.Request.CoverageAmount.Value;
-                hasChanges = true;
-            }
-
-            if (command.Request.Premium.HasValue)
-            {
-                policy.Premium = command.Request.Premium.Value;
-                hasChanges = true;
-            }
-
-            if (command.Request.SumInsured.HasValue)
-            {
-                policy.SumInsured = command.Request.SumInsured.Value;
-                hasChanges = true;
-            }
+            // Financial fields (CoverageAmount, Premium, SumInsured) are read-only for farmers.
+            // They are set by the admin when creating/approving the plan and must not be user-editable.
 
             if (command.Request.StartDate.HasValue)
             {

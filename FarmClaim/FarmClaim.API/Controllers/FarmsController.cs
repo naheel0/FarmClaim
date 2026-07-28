@@ -16,13 +16,16 @@ namespace FarmClaim.API.Controllers
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
+    [Authorize]
     public class FarmsController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly ILogger<FarmsController> _logger;
 
-        public FarmsController(IMediator mediator)
+        public FarmsController(IMediator mediator, ILogger<FarmsController> logger)
         {
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         // ==========================================
@@ -57,6 +60,8 @@ namespace FarmClaim.API.Controllers
             [FromQuery] int pageSize = 20,
             [FromQuery] string? searchTerm = null)
         {
+            pageSize = Math.Clamp(pageSize, 1, 100);
+            pageNumber = Math.Max(1, pageNumber);
             var query = new GetMyFarmsQuery(GetUserId(), pageNumber, pageSize, searchTerm);
             var result = await _mediator.Send(query);
             return Ok(result);
@@ -76,9 +81,9 @@ namespace FarmClaim.API.Controllers
                 var result = await _mediator.Send(query);
                 return Ok(result);
             }
-            catch (NotFoundException ex)
+            catch (NotFoundException)
             {
-                return NotFound(new { error = $"Farm not found. Details: {ex.Message}" });
+                return NotFound(new { error = "Farm not found" });
             }
         }
 
@@ -165,16 +170,12 @@ namespace FarmClaim.API.Controllers
             switch (ex)
             {
                 case NotFoundException _:
-                    return StatusCode(StatusCodes.Status404NotFound,
-                        new { error = ex.Message });
-
-                case UnauthorizedAccessException _:
-                    return StatusCode(StatusCodes.Status401Unauthorized,
-                        new { error = "Access denied" });
-
+                    return StatusCode(StatusCodes.Status404NotFound, new { error = "Resource not found" });
+                case UnauthorizedException _:
+                    return StatusCode(StatusCodes.Status401Unauthorized, new { error = "Access denied" });
                 default:
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { error = ex.Message, type = ex.GetType().Name });
+                    _logger.LogError(ex, "Unexpected error in FarmsController");
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An unexpected error occurred" });
             }
         }
     }

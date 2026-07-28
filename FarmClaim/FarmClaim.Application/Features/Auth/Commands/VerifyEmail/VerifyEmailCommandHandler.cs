@@ -100,11 +100,12 @@ namespace FarmClaim.Application.Features.Auth.Commands.VerifyEmail
             // Generate tokens (auto-login after verification)
             var accessToken = _jwtService.GenerateAccessToken(user);
             var refreshTokenValue = _jwtService.GenerateRefreshToken();
+            var refreshTokenHash = HashToken(refreshTokenValue);
 
             var refreshTokenEntity = new RefreshTokenEntity
             {
                 UserId = user.Id,
-                Token = refreshTokenValue,
+                Token = refreshTokenHash,
                 ExpiresAt = DateTime.UtcNow.AddDays(7),
                 CreatedAt = DateTime.UtcNow
             };
@@ -136,6 +137,12 @@ namespace FarmClaim.Application.Features.Auth.Commands.VerifyEmail
         private static string HashCode(string code)
         {
             var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(code));
+            return Convert.ToHexString(bytes);
+        }
+
+        private static string HashToken(string token)
+        {
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
             return Convert.ToHexString(bytes);
         }
     }

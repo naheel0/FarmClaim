@@ -11,6 +11,7 @@ namespace FarmClaim.API.Controllers
         private readonly ILogger<AdminController> _logger;
 
         public AdminController(IMediator mediator, ILogger<AdminController> logger)
+            : base(logger)
         {
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));

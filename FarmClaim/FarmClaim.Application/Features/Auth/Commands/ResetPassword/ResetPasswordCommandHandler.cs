@@ -4,6 +4,7 @@ using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Auth.DTOs;
 using FarmClaim.Domain.Entities;
+using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -37,6 +38,16 @@ namespace FarmClaim.Application.Features.Auth.Commands.ResetPassword
 
             if (user == null)
                 throw new NotFoundException("User not found.");
+
+            // Block password reset for suspended/blocked users
+            if (user.Status != UserStatus.Active)
+            {
+                _logger.LogWarning("Password reset attempted for non-active user {UserId} (status: {Status})", user.Id, user.Status);
+                throw new ValidationException(new List<string>
+                {
+                    "Your account is not active. Please contact support."
+                });
+            }
 
             // 2. Hash the provided token
             var providedHash = HashToken(rawToken);

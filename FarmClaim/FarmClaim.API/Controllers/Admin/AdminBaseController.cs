@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using FarmClaim.Application.Common.Exceptions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -8,6 +9,13 @@ namespace FarmClaim.API.Controllers
     [Authorize(Roles = "Admin")]
     public abstract class AdminBaseController : ControllerBase
     {
+        private readonly ILogger<AdminBaseController> _logger;
+
+        protected AdminBaseController(ILogger<AdminBaseController> logger)
+        {
+            _logger = logger;
+        }
+
         protected Guid GetAdminId()
         {
             var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -24,7 +32,16 @@ namespace FarmClaim.API.Controllers
 
         protected IActionResult HandleError(Exception ex)
         {
-            return StatusCode(500, new { error = "An unexpected error occurred", detail = ex.Message });
+            switch (ex)
+            {
+                case NotFoundException _:
+                    return StatusCode(StatusCodes.Status404NotFound, new { error = "Resource not found" });
+                case ForbiddenException _:
+                    return StatusCode(StatusCodes.Status403Forbidden, new { error = "Access denied" });
+                default:
+                    _logger.LogError(ex, "Unexpected error in admin operation");
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An unexpected error occurred" });
+            }
         }
     }
 }

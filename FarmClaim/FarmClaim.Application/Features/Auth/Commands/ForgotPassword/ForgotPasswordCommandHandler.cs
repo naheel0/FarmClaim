@@ -108,10 +108,11 @@ namespace FarmClaim.Application.Features.Auth.Commands.ForgotPassword
 
             _logger.LogInformation("Password reset email queued for user {UserId}", user.Id);
 
+            // SECURITY: Return same ExpiresAt as the non-existent email path to prevent enumeration
             return new PasswordResetResponseDto
             {
                 Message = "If the email exists in our system, a reset link has been sent.",
-                ExpiresAt = resetToken.ExpiresAt
+                ExpiresAt = null
             };
         }
 

@@ -43,6 +43,7 @@ namespace FarmClaim.Domain.Entities
         [MaxLength(30)]
         public ClaimStatus Status { get; set; } = ClaimStatus.Pending;
 
+        [Column(TypeName = "decimal(18, 2)")]
         public decimal? ApprovedAmount { get; set; }
 
         // Review tracking

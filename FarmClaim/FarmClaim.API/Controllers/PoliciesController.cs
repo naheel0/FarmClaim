@@ -16,13 +16,16 @@ namespace FarmClaim.API.Controllers
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
+    [Authorize]
     public class PoliciesController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly ILogger<PoliciesController> _logger;
 
-        public PoliciesController(IMediator mediator)
+        public PoliciesController(IMediator mediator, ILogger<PoliciesController> logger)
         {
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         [HttpPost]
@@ -61,11 +64,17 @@ namespace FarmClaim.API.Controllers
 
         {
 
-            var statusFilter = !string.IsNullOrWhiteSpace(status)
+            pageSize = Math.Clamp(pageSize, 1, 100);
+            pageNumber = Math.Max(1, pageNumber);
 
-                ? Enum.Parse<FarmClaim.Domain.Enums.PolicyStatus>(status, true)
-
-                : (FarmClaim.Domain.Enums.PolicyStatus?)null;
+            FarmClaim.Domain.Enums.PolicyStatus? statusFilter = null;
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                if (Enum.TryParse<FarmClaim.Domain.Enums.PolicyStatus>(status, true, out var parsed))
+                    statusFilter = parsed;
+                else
+                    return BadRequest(new { error = $"Invalid status value: {status}" });
+            }
 
 
 
@@ -86,9 +95,9 @@ namespace FarmClaim.API.Controllers
                 var result = await _mediator.Send(query);
                 return Ok(result);
             }
-            catch (NotFoundException ex)
+            catch (NotFoundException)
             {
-                return NotFound(new { error = $"Policy not found. Details: {ex.Message}" });
+                return NotFound(new { error = "Policy not found" });
             }
         }
 
@@ -139,16 +148,12 @@ namespace FarmClaim.API.Controllers
             switch (ex)
             {
                 case NotFoundException _:
-                    return StatusCode(StatusCodes.Status404NotFound,
-                        new { error = ex.Message });
-
-                case UnauthorizedAccessException _:
-                    return StatusCode(StatusCodes.Status401Unauthorized,
-                        new { error = "Access denied" });
-
+                    return StatusCode(StatusCodes.Status404NotFound, new { error = "Resource not found" });
+                case UnauthorizedException _:
+                    return StatusCode(StatusCodes.Status401Unauthorized, new { error = "Access denied" });
                 default:
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { error = ex.Message, type = ex.GetType().Name });
+                    _logger.LogError(ex, "Unexpected error in PoliciesController");
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An unexpected error occurred" });
             }
         }
     }

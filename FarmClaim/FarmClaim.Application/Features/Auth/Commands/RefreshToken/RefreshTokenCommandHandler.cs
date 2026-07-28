@@ -1,4 +1,6 @@
-﻿using FarmClaim.Application.Common.Exceptions;
+﻿using System.Security.Cryptography;
+using System.Text;
+using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Auth.DTOs;
 using FarmClaim.Domain.Enums;
@@ -29,9 +31,12 @@ namespace FarmClaim.Application.Features.Auth.Commands.RefreshToken
         {
             _logger.LogInformation("Refreshing token from cookie...");
 
+            // Hash the incoming token to compare against stored hash
+            var tokenHash = HashToken(cmd.RefreshToken);
+
             var existingToken = await _context.RefreshTokens
                 .Include(rt => rt.User)
-                .FirstOrDefaultAsync(rt => rt.Token == cmd.RefreshToken
+                .FirstOrDefaultAsync(rt => rt.Token == tokenHash
                                            && !rt.IsRevoked
                                            && rt.ExpiresAt > DateTime.UtcNow, ct);
 
@@ -72,12 +77,13 @@ namespace FarmClaim.Application.Features.Auth.Commands.RefreshToken
             // Step 3: Generate new tokens
             var newAccessToken = _jwtService.GenerateAccessToken(user);
             var newRefreshTokenValue = _jwtService.GenerateRefreshToken();
+            var newRefreshTokenHash = HashToken(newRefreshTokenValue);
 
             // Step 4: Create NEW refresh token as SEPARATE entity
             var newRefreshTokenEntity = new RefreshTokenEntity
             {
                 UserId = user.Id,
-                Token = newRefreshTokenValue,
+                Token = newRefreshTokenHash,
                 ExpiresAt = DateTime.UtcNow.AddDays(7),
                 CreatedAt = DateTime.UtcNow
             };
@@ -102,6 +108,12 @@ namespace FarmClaim.Application.Features.Auth.Commands.RefreshToken
                     PhoneNumber = user.PhoneNumber
                 }
             };
+        }
+
+        private static string HashToken(string token)
+        {
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+            return Convert.ToHexString(bytes);
         }
     }
 }

@@ -107,22 +107,25 @@ namespace FarmClaim.API.Middleware
 
         private static string GetClientIp(HttpContext context)
         {
-            // Check X-Forwarded-For first (when behind reverse proxy / Nginx)
-            var forwarded = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-            if (!string.IsNullOrEmpty(forwarded))
+            // Only trust proxy headers if the direct connection comes from a known proxy
+            var directIp = context.Connection.RemoteIpAddress?.ToString();
+
+            // If no X-Forwarded-For header, always use direct IP
+            if (!context.Request.Headers.ContainsKey("X-Forwarded-For"))
+                return directIp ?? "unknown";
+
+            // Only trust X-Forwarded-For when the direct connection is from localhost
+            // (i.e., a reverse proxy running on the same machine or in the same container network)
+            var trustedProxies = new[] { "127.0.0.1", "::1", "localhost" };
+            if (directIp != null && trustedProxies.Contains(directIp, StringComparer.OrdinalIgnoreCase))
             {
-                return forwarded.Split(',')[0].Trim();
+                var forwarded = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(forwarded))
+                    return forwarded.Split(',')[0].Trim();
             }
 
-            // Check X-Real-IP (Nginx proxy_set_header)
-            var realIp = context.Request.Headers["X-Real-IP"].FirstOrDefault();
-            if (!string.IsNullOrEmpty(realIp))
-            {
-                return realIp;
-            }
-
-            // Fallback to direct connection IP
-            return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            // Not behind a trusted proxy — use direct IP
+            return directIp ?? "unknown";
         }
     }
 }
