@@ -82,28 +82,38 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetDashboardStats
                 .OrderByDescending(x => x.Count)
                 .ToListAsync(ct);
 
-            // --- Monthly trends (SQL GroupBy) ---
-            var monthlyTrends = await _context.Claims.AsNoTracking()
+            // --- Monthly trends (SQL GroupBy — materialize raw, format in-memory) ---
+            var monthlyTrendsData = await _context.Claims.AsNoTracking()
                 .Where(c => !c.IsDeleted)
                 .GroupBy(c => new { c.CreatedAt.Year, c.CreatedAt.Month })
-                .Select(g => new MonthlyTrend
+                .Select(g => new
                 {
-                    Month = $"{g.Key.Year}-{g.Key.Month:D2}",
+                    g.Key.Year,
+                    g.Key.Month,
                     Claims = g.Count(),
                     Amount = g.Where(c => c.ApprovedAmount.HasValue).Sum(c => c.ApprovedAmount!.Value)
                 })
-                .OrderByDescending(x => x.Month)
+                .OrderByDescending(x => x.Year)
+                .ThenByDescending(x => x.Month)
                 .Take(12)
                 .ToListAsync(ct);
 
-            // --- Top farms by claim count (SQL GroupBy) ---
-            var topFarmClaims = await _context.Claims.AsNoTracking()
-                .Where(c => !c.IsDeleted && c.Farm != null)
-                .GroupBy(c => new { c.FarmId, c.Farm!.Name })
+            var monthlyTrends = monthlyTrendsData
+                .Select(m => new MonthlyTrend
+                {
+                    Month = $"{m.Year}-{m.Month:D2}",
+                    Claims = m.Claims,
+                    Amount = m.Amount
+                })
+                .ToList();
+
+            // --- Top farms by claim count (SQL GroupBy — FK only, no nav property) ---
+            var topFarmAggs = await _context.Claims.AsNoTracking()
+                .Where(c => !c.IsDeleted)
+                .GroupBy(c => c.FarmId)
                 .Select(g => new
                 {
-                    FarmId = g.Key.FarmId,
-                    FarmName = g.Key.Name,
+                    FarmId = g.Key,
                     ClaimCount = g.Count(),
                     TotalClaimed = g.Where(c => c.ApprovedAmount.HasValue).Sum(c => c.ApprovedAmount!.Value)
                 })
@@ -111,19 +121,29 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetDashboardStats
                 .Take(5)
                 .ToListAsync(ct);
 
-            var topFarmIds = topFarmClaims.Select(t => t.FarmId).ToList();
-            var farmOwnerNames = await _context.Farms.AsNoTracking()
-                .Where(f => topFarmIds.Contains(f.Id) && f.User != null)
-                .Select(f => new { f.Id, OwnerName = f.User!.FirstName + " " + f.User.LastName })
-                .ToDictionaryAsync(f => f.Id, f => f.OwnerName, ct);
+            var topFarmIds = topFarmAggs.Select(t => t.FarmId).ToList();
 
-            var topFarms = topFarmClaims.Select(t => new TopFarmDto
+            var farmInfos = await _context.Farms.AsNoTracking()
+                .Where(f => topFarmIds.Contains(f.Id))
+                .Select(f => new
+                {
+                    f.Id,
+                    f.Name,
+                    FarmerName = f.User != null ? f.User.FirstName + " " + f.User.LastName : ""
+                })
+                .ToDictionaryAsync(f => f.Id, ct);
+
+            var topFarms = topFarmAggs.Select(t =>
             {
-                FarmId = t.FarmId,
-                FarmName = t.FarmName,
-                FarmerName = farmOwnerNames.TryGetValue(t.FarmId, out var name) ? name : "",
-                ClaimCount = t.ClaimCount,
-                TotalClaimed = t.TotalClaimed
+                farmInfos.TryGetValue(t.FarmId, out var info);
+                return new TopFarmDto
+                {
+                    FarmId = t.FarmId,
+                    FarmName = info?.Name ?? "",
+                    FarmerName = info?.FarmerName ?? "",
+                    ClaimCount = t.ClaimCount,
+                    TotalClaimed = t.TotalClaimed
+                };
             }).ToList();
 
             return new DashboardStatsDto
