@@ -39,7 +39,6 @@ jobs:
           file: ./FarmClaim/Dockerfile
           push: true
           provenance: false
-          cache-from: type=gha
           tags: |
             ${{ env.REGISTRY }}/naheel0/farmclaim-backend:${{ github.sha }}
             ${{ env.REGISTRY }}/naheel0/farmclaim-backend:latest
@@ -89,8 +88,6 @@ jobs:
           file: ./farmclaim-frontend/Dockerfile
           push: true
           provenance: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=${{ env.BACKEND_API_URL }}
             NEXT_PUBLIC_API_URL=${{ env.BACKEND_API_URL }}
