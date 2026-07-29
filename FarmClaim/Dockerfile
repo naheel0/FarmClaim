@@ -18,11 +18,9 @@ RUN adduser --disabled-password --no-create-home appuser
 USER appuser
 
 COPY --from=build /app/publish .
-COPY FarmClaim.API/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
 EXPOSE 5161
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD curl -f http://localhost:5161/api/v1/health || exit 1
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["dotnet", "FarmClaim.API.dll"]
