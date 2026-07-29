@@ -13,6 +13,10 @@ env:
 jobs:
   deploy-backend:
     runs-on: ubuntu-latest
+    if: >-
+      contains(join(github.event.head_commit.modified, ' '), 'FarmClaim/') ||
+      contains(join(github.event.head_commit.added, ' '), 'FarmClaim/') ||
+      github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
       packages: write
@@ -34,6 +38,9 @@ jobs:
           context: ./FarmClaim
           file: ./FarmClaim/Dockerfile
           push: true
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ${{ env.REGISTRY }}/naheel0/farmclaim-backend:${{ github.sha }}
             ${{ env.REGISTRY }}/naheel0/farmclaim-backend:latest
@@ -50,8 +57,17 @@ jobs:
             -n backend \
             --image ${{ env.REGISTRY }}/naheel0/farmclaim-backend:${{ github.sha }}
 
+      - name: Health check
+        run: |
+          sleep 30
+          curl -f https://backend.ashywater-78ecbb49.southeastasia.azurecontainerapps.io/api/v1/health || exit 1
+
   deploy-frontend:
     runs-on: ubuntu-latest
+    if: >-
+      contains(join(github.event.head_commit.modified, ' '), 'farmclaim-frontend/') ||
+      contains(join(github.event.head_commit.added, ' '), 'farmclaim-frontend/') ||
+      github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
       packages: write
@@ -73,6 +89,9 @@ jobs:
           context: ./farmclaim-frontend
           file: ./farmclaim-frontend/Dockerfile
           push: true
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=${{ env.BACKEND_API_URL }}
             NEXT_PUBLIC_API_URL=${{ env.BACKEND_API_URL }}

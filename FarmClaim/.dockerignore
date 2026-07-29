@@ -1,10 +1,7 @@
-bin
+**/.git
+**/node_modules
+**/.next
 **/bin
-obj
 **/obj
-.vs
-*.user
-.git
-.gitignore
-.gitattributes
-*.md
+**/.vs
+**/*.user
