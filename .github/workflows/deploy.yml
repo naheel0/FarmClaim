@@ -1,22 +1,17 @@
-name: Deploy Backend to Azure Container Apps
+name: Deploy to Azure Container Apps
 
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "farmclaim-frontend/**"
-      - "README.md"
   workflow_dispatch:
 
 env:
   AZURE_RESOURCE_GROUP: rg-farmclaim
   REGISTRY: ghcr.io
-  IMAGE_NAME: naheel0/farmclaim-backend
-  CONTAINER_APP_NAME: backend
   BACKEND_API_URL: https://backend.ashywater-78ecbb49.southeastasia.azurecontainerapps.io
 
 jobs:
-  build-and-deploy:
+  deploy-backend:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -33,24 +28,66 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push backend Docker image
+      - name: Build and push backend
         uses: docker/build-push-action@v6
         with:
           context: ./FarmClaim
           file: ./FarmClaim/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/naheel0/farmclaim-backend:${{ github.sha }}
+            ${{ env.REGISTRY }}/naheel0/farmclaim-backend:latest
 
       - name: Log in to Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Container Apps
+      - name: Deploy backend
         run: |
           az containerapp update \
             -g ${{ env.AZURE_RESOURCE_GROUP }} \
-            -n ${{ env.CONTAINER_APP_NAME }} \
-            --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            -n backend \
+            --image ${{ env.REGISTRY }}/naheel0/farmclaim-backend:${{ github.sha }}
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./farmclaim-frontend
+          file: ./farmclaim-frontend/Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ env.BACKEND_API_URL }}
+            NEXT_PUBLIC_API_URL=${{ env.BACKEND_API_URL }}
+          tags: |
+            ${{ env.REGISTRY }}/naheel0/farmclaim-frontend:${{ github.sha }}
+            ${{ env.REGISTRY }}/naheel0/farmclaim-frontend:latest
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy frontend
+        run: |
+          az containerapp update \
+            -g ${{ env.AZURE_RESOURCE_GROUP }} \
+            -n frontend \
+            --image ${{ env.REGISTRY }}/naheel0/farmclaim-frontend:${{ github.sha }}
