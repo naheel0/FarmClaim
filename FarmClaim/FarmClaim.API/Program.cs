@@ -230,7 +230,7 @@ builder.Services.AddHttpClient("ElasticEmail", client =>
 });
 
 builder.Services.AddScoped<FarmClaim.Application.Common.Interfaces.IEmailService,
-    FarmClaim.Infrastructure.Services.SmtpEmailService>();
+    FarmClaim.Infrastructure.Email.Services.ElasticEmailService>();
 
 builder.Services.AddScoped<FarmClaim.Application.Common.Interfaces.IEmailQueueService,
     FarmClaim.Infrastructure.Email.Services.EmailQueueService>();
