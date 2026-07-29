@@ -1,0 +1,124 @@
+services:
+  nginx:
+    image: nginxproxy/nginx-proxy:alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - certs:/etc/nginx/certs
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+    environment:
+      - CLIENT_MAX_BODY_SIZE=50m
+    restart: unless-stopped
+    networks:
+      - farmclaim-net
+
+  acme-companion:
+    image: nginxproxy/acme-companion
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - certs:/etc/nginx/certs
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - acme:/etc/acme.sh
+    environment:
+      - DEFAULT_EMAIL=admin@farmclaim.com
+      - NGINX_PROXY_CONTAINER=nginx
+      - NGINX_DOCKER_GEN_CONTAINER=nginx
+    restart: unless-stopped
+    networks:
+      - farmclaim-net
+    depends_on:
+      - nginx
+
+  frontend:
+    build:
+      context: ./farmclaim-frontend
+      dockerfile: Dockerfile
+    environment:
+      - VIRTUAL_HOST=farmclaim.duckdns.org
+      - VIRTUAL_PATH=/
+      - LETSENCRYPT_HOST=farmclaim.duckdns.org
+      - LETSENCRYPT_EMAIL=admin@farmclaim.com
+      - VIRTUAL_PORT=3000
+    restart: unless-stopped
+    networks:
+      - farmclaim-net
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./FarmClaim
+      dockerfile: Dockerfile
+    environment:
+      - VIRTUAL_HOST=farmclaim.duckdns.org
+      - VIRTUAL_PATH=/api/
+      - LETSENCRYPT_HOST=farmclaim.duckdns.org
+      - VIRTUAL_PORT=5161
+      - CLIENT_MAX_BODY_SIZE=50m
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5161
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=FarmClaimDb;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;
+      - JWT_SECRET=${JWT_SECRET}
+      - Jwt__Issuer=FarmClaim
+      - Jwt__Audience=FarmClaimApp
+      - AllowedOrigins__0=https://farmclaim.duckdns.org
+      - AllowedOrigins__1=https://localhost
+      - GeminiVision__ApiKey=${GEMINI_API_KEY}
+      - Cloudinary__CloudName=${CLOUDINARY_CLOUD_NAME}
+      - Cloudinary__ApiKey=${CLOUDINARY_API_KEY}
+      - Cloudinary__ApiSecret=${CLOUDINARY_API_SECRET}
+      - Razorpay__KeyId=${RAZORPAY_KEY_ID}
+      - Razorpay__KeySecret=${RAZORPAY_KEY_SECRET}
+      - Razorpay__DummyMode=${RAZORPAY_DUMMY_MODE:-false}
+      - Email__Provider=${EMAIL_PROVIDER:-ElasticEmail}
+      - Email__SmtpHost=${EMAIL_SMTP_HOST}
+      - Email__Port=${EMAIL_SMTP_PORT:-2525}
+      - Email__Username=${EMAIL_SMTP_USER}
+      - Email__Password=${EMAIL_SMTP_PASSWORD}
+      - Email__FromEmail=${EMAIL_FROM}
+      - Email__FromName=FarmClaim
+      - Email__DummyMode=${EMAIL_DUMMY_MODE:-false}
+    restart: unless-stopped
+    networks:
+      - farmclaim-net
+    depends_on:
+      sqlserver:
+        condition: service_started
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${SA_PASSWORD}
+      - MSSQL_PID=Developer
+    volumes:
+      - sqldata:/var/opt/mssql
+    restart: unless-stopped
+    networks:
+      - farmclaim-net
+
+  duckdns:
+    image: linuxserver/duckdns
+    environment:
+      - SUBDOMAINS=farmclaim
+      - TOKEN=${DUCKDNS_TOKEN}
+      - LOG_FILE=true
+    restart: unless-stopped
+    networks:
+      - farmclaim-net
+
+volumes:
+  certs:
+  vhost:
+  html:
+  acme:
+  sqldata:
+
+networks:
+  farmclaim-net:
+    driver: bridge

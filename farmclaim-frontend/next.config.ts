@@ -15,6 +15,27 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "z.ai" },
     ],
   },
+  async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5161";
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${apiUrl}/api/:path*`,
+      },
+      {
+        source: "/swagger/:path*",
+        destination: `${apiUrl}/swagger/:path*`,
+      },
+      {
+        source: "/hangfire/:path*",
+        destination: `${apiUrl}/hangfire/:path*`,
+      },
+      {
+        source: "/hubs/:path*",
+        destination: `${apiUrl}/hubs/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

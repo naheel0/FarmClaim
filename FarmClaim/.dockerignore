@@ -1,0 +1,10 @@
+bin
+**/bin
+obj
+**/obj
+.vs
+*.user
+.git
+.gitignore
+.gitattributes
+*.md
