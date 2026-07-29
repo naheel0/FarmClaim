@@ -6,6 +6,7 @@ import { LandingPage } from "@/components/landing/LandingPage";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { SignupPage } from "@/components/auth/SignupPage";
 import { ForgotPasswordPage, ResetPasswordPage } from "@/components/auth/ForgotPasswordPage";
+import { VerifyEmailPage } from "@/components/auth/VerifyEmailPage";
 import { FarmerDashboard } from "@/components/farmer/FarmerDashboard";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export default function Home() {
   if (path === "/" || path === "") return <LandingPage />;
   if (path === "/login") return <LoginPage />;
   if (path === "/signup") return <SignupPage />;
+  if (path === "/verify-email") return <VerifyEmailPage />;
   if (path === "/forgot-password") return <ForgotPasswordPage />;
   if (path === "/reset-password") return <ResetPasswordPage />;
 

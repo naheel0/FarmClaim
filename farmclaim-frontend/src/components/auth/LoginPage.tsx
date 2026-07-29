@@ -21,11 +21,13 @@ export function LoginPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setNeedsVerification(false);
     try {
       const res = await authApi.login({ email, password });
       login(res.token, res.user);
@@ -34,6 +36,9 @@ export function LoginPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Login failed";
       setError(msg);
+      if (msg.toLowerCase().includes("not verified")) {
+        setNeedsVerification(true);
+      }
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -52,7 +57,18 @@ export function LoginPage() {
         {error && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-50 text-rose-900 text-sm border border-rose-200">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-            {error}
+            <div>
+              {error}
+              {needsVerification && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/verify-email?email=${encodeURIComponent(email)}`)}
+                  className="block mt-2 text-sm text-emerald-700 hover:text-emerald-800 font-semibold underline"
+                >
+                  Verify your email
+                </button>
+              )}
+            </div>
           </div>
         )}
 

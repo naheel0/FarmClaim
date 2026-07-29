@@ -31,7 +31,7 @@ function parseHash(): Route {
   const staticSegments = new Set([
     "overview", "farms", "policies", "claims", "plans", "profile",
     "dashboard", "audit", "users", "login", "signup",
-    "forgot-password", "reset-password", "admin", "new", "farmers",
+    "forgot-password", "reset-password", "verify-email", "admin", "new", "farmers",
   ]);
   const params: Record<string, string> = {};
   if (segments.length >= 2) {
