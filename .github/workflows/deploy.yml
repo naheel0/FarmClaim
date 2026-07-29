@@ -40,7 +40,6 @@ jobs:
           push: true
           provenance: false
           cache-from: type=gha
-          cache-to: type=gha,mode=max
           tags: |
             ${{ env.REGISTRY }}/naheel0/farmclaim-backend:${{ github.sha }}
             ${{ env.REGISTRY }}/naheel0/farmclaim-backend:latest
