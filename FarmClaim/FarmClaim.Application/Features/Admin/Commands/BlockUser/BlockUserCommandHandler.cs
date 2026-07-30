@@ -55,17 +55,24 @@ namespace FarmClaim.Application.Features.Admin.Commands.BlockUser
             await RevokeAllUserRefreshTokensAsync(user.Id, cmd.AdminUserId, "User blocked by admin", ct);
             await _context.SaveChangesAsync(ct);
 
-            // NEW: Send block email (reuse suspended template with blocked messaging)
-            await _emailQueue.EnqueueEmailAsync(
-                toEmail: user.Email,
-                templateName: "UserSuspendedEmail", // You can create a separate UserBlockedEmail template if preferred
-                model: new UserSuspendedEmailModel
-                {
-                    UserName = $"{user.FirstName} {user.LastName}",
-                    UserEmail = user.Email,
-                    Reason = cmd.Request.Reason,
-                    SuspendedAt = DateTime.UtcNow
-                });
+            // Send block email (non-blocking — logged on failure)
+            try
+            {
+                await _emailQueue.EnqueueEmailAsync(
+                    toEmail: user.Email,
+                    templateName: "UserBlockedEmail",
+                    model: new UserSuspendedEmailModel
+                    {
+                        UserName = $"{user.FirstName} {user.LastName}",
+                        UserEmail = user.Email,
+                        Reason = cmd.Request.Reason,
+                        SuspendedAt = DateTime.UtcNow
+                    });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send block email to {Email}", user.Email);
+            }
 
             _logger.LogWarning("User {UserId} PERMANENTLY BLOCKED by Admin {AdminId}. Reason: {Reason}",
                 user.Id, cmd.AdminUserId, cmd.Request.Reason);

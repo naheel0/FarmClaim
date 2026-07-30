@@ -1,0 +1,39 @@
+@using FarmClaim.Application.Common.Models
+@model UserSuspendedEmailModel
+@{
+    Layout = "_Layout.cshtml";
+}
+@section Title { Account Blocked — FarmClaim }
+
+<h2 style="color:#c62828;margin-top:0;">Account Blocked</h2>
+
+<p>Hello @Model.UserName,</p>
+
+<p>Your FarmClaim account has been <strong>permanently blocked</strong> by our administrative team.</p>
+
+<p style="background-color:#ffebee;padding:15px;border-radius:4px;border-left:4px solid #c62828;">
+    <strong>Reason:</strong><br>
+    @Model.Reason
+</p>
+
+<p><strong>What this means:</strong></p>
+<ul style="line-height:1.8;color:#555;">
+    <li>You cannot log in to your account</li>
+    <li>Your existing policies and claims remain intact</li>
+    <li>You cannot file new claims or create new policies</li>
+    <li>This action is permanent and cannot be reversed</li>
+</ul>
+
+<p>If you believe this was done in error, please contact our support team:</p>
+
+<div style="text-align:center;margin:25px 0;">
+    <a href="mailto:support@farmclaim.com?subject=Account Block Appeal - @Model.UserEmail" 
+       style="background-color:#1565c0;color:#ffffff;padding:12px 28px;
+              text-decoration:none;border-radius:4px;display:inline-block;font-weight:600;">
+        Contact Support
+    </a>
+</div>
+
+<p style="color:#999;font-size:12px;">
+    Blocked on @Model.SuspendedAt.ToString("MMM dd, yyyy") at @Model.SuspendedAt.ToString("HH:mm") UTC
+</p>

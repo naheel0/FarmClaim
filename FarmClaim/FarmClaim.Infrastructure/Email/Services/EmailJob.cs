@@ -1,12 +1,11 @@
 ﻿using FarmClaim.Application.Common.Interfaces;
+using Hangfire;
 using Microsoft.Extensions.Logging;
 using Polly;
 
 namespace FarmClaim.Infrastructure.Email.Services
 {
-    /// <summary>
-    /// Hangfire job — runs in background, auto-retried by Hangfire on failure.
-    /// </summary>
+    [AutomaticRetry(Attempts = 3, OnAttemptsExceeded = AttemptsExceededAction.Fail)]
     public class EmailJob
     {
         private readonly IEmailService _emailService;
@@ -37,7 +36,7 @@ namespace FarmClaim.Infrastructure.Email.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Email permanently failed after retries: To={To}", toEmail);
-                throw; // Hangfire will retry 3 more times with its own backoff
+                throw;
             }
         }
     }

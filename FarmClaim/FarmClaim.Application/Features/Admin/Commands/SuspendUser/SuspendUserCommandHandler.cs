@@ -55,17 +55,24 @@ namespace FarmClaim.Application.Features.Admin.Commands.SuspendUser
             await RevokeAllUserRefreshTokensAsync(user.Id, cmd.AdminUserId, "User suspended by admin", ct);
             await _context.SaveChangesAsync(ct);
 
-            // NEW: Send suspension email
-            await _emailQueue.EnqueueEmailAsync(
-                toEmail: user.Email,
-                templateName: "UserSuspendedEmail",
-                model: new UserSuspendedEmailModel
-                {
-                    UserName = $"{user.FirstName} {user.LastName}",
-                    UserEmail = user.Email,
-                    Reason = cmd.Request.Reason,
-                    SuspendedAt = DateTime.UtcNow
-                });
+            // Send suspension email (non-blocking — logged on failure)
+            try
+            {
+                await _emailQueue.EnqueueEmailAsync(
+                    toEmail: user.Email,
+                    templateName: "UserSuspendedEmail",
+                    model: new UserSuspendedEmailModel
+                    {
+                        UserName = $"{user.FirstName} {user.LastName}",
+                        UserEmail = user.Email,
+                        Reason = cmd.Request.Reason,
+                        SuspendedAt = DateTime.UtcNow
+                    });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send suspension email to {Email}", user.Email);
+            }
 
             _logger.LogInformation("User {UserId} suspended by Admin {AdminId}. Reason: {Reason}",
                 user.Id, cmd.AdminUserId, cmd.Request.Reason);

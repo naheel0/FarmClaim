@@ -1028,6 +1028,7 @@ function AdminUsersPage() {
   const [actionUser, setActionUser] = useState<any>(null);
   const [actionType, setActionType] = useState<"suspend" | "activate" | "block">("suspend");
   const [reason, setReason] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
   const [userDetail, setUserDetail] = useState<any>(null);
   const [tab, setTab] = useState<"all" | "farmers" | "admins">("all");
   const [farmers, setFarmers] = useState<any[]>([]);
@@ -1099,14 +1100,26 @@ function AdminUsersPage() {
   };
 
   const doAction = async () => {
-    if (!actionUser) return;
-    if (actionType === "suspend") await adminApi.suspendUser(actionUser.id, reason);
-    if (actionType === "activate") await adminApi.activateUser(actionUser.id);
-    if (actionType === "block") await adminApi.blockUser(actionUser.id, reason);
-    toast.success(`User ${actionType}d`);
-    setActionUser(null);
-    setReason("");
-    loadUsers(page, search, tab === "admins" ? "Admin" : undefined);
+    if (!actionUser || actionLoading) return;
+    setActionLoading(true);
+    try
+    {
+      if (actionType === "suspend") await adminApi.suspendUser(actionUser.id, reason);
+      if (actionType === "activate") await adminApi.activateUser(actionUser.id);
+      if (actionType === "block") await adminApi.blockUser(actionUser.id, reason);
+      toast.success(`User ${actionType}d`);
+      setActionUser(null);
+      setReason("");
+      loadUsers(page, search, tab === "admins" ? "Admin" : undefined);
+    }
+    catch (err: any)
+    {
+      toast.error(err?.message || `Failed to ${actionType} user`);
+    }
+    finally
+    {
+      setActionLoading(false);
+    }
   };
 
   const tabs = [
@@ -1328,11 +1341,11 @@ function AdminUsersPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setActionUser(null)}>Cancel</Button>
-            <Button onClick={doAction} disabled={actionType !== "activate" && !reason} className={cn(
+            <Button onClick={doAction} disabled={(actionType !== "activate" && !reason) || actionLoading} className={cn(
               actionType === "activate" ? "bg-emerald-700 hover:bg-emerald-800 text-white" : "",
               actionType === "suspend" ? "bg-amber-600 hover:bg-amber-700 text-white" : "",
               actionType === "block" ? "bg-rose-600 hover:bg-rose-700 text-white" : ""
-            )}>Confirm {actionType}</Button>
+            )}>{actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : `Confirm ${actionType}`}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
