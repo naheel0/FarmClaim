@@ -13,10 +13,6 @@ env:
 jobs:
   deploy-backend:
     runs-on: ubuntu-latest
-    if: >-
-      contains(join(github.event.head_commit.modified, ' '), 'FarmClaim/') ||
-      contains(join(github.event.head_commit.added, ' '), 'FarmClaim/') ||
-      github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
       packages: write
@@ -62,10 +58,6 @@ jobs:
 
   deploy-frontend:
     runs-on: ubuntu-latest
-    if: >-
-      contains(join(github.event.head_commit.modified, ' '), 'farmclaim-frontend/') ||
-      contains(join(github.event.head_commit.added, ' '), 'farmclaim-frontend/') ||
-      github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
       packages: write
