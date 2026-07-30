@@ -20,6 +20,7 @@ namespace FarmClaim.Infrastructure.Email.Services
         private readonly EmailSettings _settings;
         private readonly ILogger<ElasticEmailService> _logger;
         private readonly HttpClient _httpClient;
+        private readonly string _apiKey;
         private const string ApiBaseUrl = "https://api.elasticemail.com/v2/email/send";
 
         public ElasticEmailService(
@@ -30,6 +31,17 @@ namespace FarmClaim.Infrastructure.Email.Services
             _settings = settings?.Value ?? throw new ArgumentNullException(nameof(settings));
             _logger = logger;
             _httpClient = httpClientFactory.CreateClient("ElasticEmail");
+
+            // Env var takes precedence over config
+            _apiKey = Environment.GetEnvironmentVariable("ELASTIC_EMAIL_API_KEY")
+                      ?? _settings.SendGridApiKey;
+
+            if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-elastic-email-api-key-here")
+            {
+                _logger.LogCritical(
+                    "ELASTIC_EMAIL_API_KEY is not configured. Emails will fail. " +
+                    "Set the ELASTIC_EMAIL_API_KEY environment variable or Email:SendGridApiKey in config.");
+            }
         }
 
         public async Task SendEmailAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default)
@@ -56,7 +68,7 @@ namespace FarmClaim.Infrastructure.Email.Services
                 // Elastic Email API uses form-urlencoded POST
                 var formData = new Dictionary<string, string>
                 {
-                    ["apikey"] = _settings.SendGridApiKey, // reuse this field for Elastic API key
+                    ["apikey"] = _apiKey,
                     ["from"] = _settings.FromEmail,
                     ["fromName"] = _settings.FromName,
                     ["subject"] = subject,
