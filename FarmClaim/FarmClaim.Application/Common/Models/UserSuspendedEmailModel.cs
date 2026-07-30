@@ -1,4 +1,4 @@
-﻿namespace FarmClaim.Application.Features.Admin.Commands.SuspendUser
+namespace FarmClaim.Application.Common.Models
 {
     public class UserSuspendedEmailModel
     {

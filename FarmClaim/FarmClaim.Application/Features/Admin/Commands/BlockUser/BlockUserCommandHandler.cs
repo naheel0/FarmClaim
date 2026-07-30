@@ -1,6 +1,6 @@
 ﻿using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Common.Interfaces;
-using FarmClaim.Application.Features.Admin.Commands.SuspendUser;
+using FarmClaim.Application.Common.Models;
 using FarmClaim.Application.Features.Admin.DTOs;
 using FarmClaim.Domain.Entities;
 using FarmClaim.Domain.Enums;
