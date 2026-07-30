@@ -22,12 +22,10 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.CreatePolicy
                 .Must(x => !x.EndDate.HasValue || x.EndDate.Value > x.StartDate)
                 .WithMessage("End date must be after start date");
 
-            When(x => !string.IsNullOrWhiteSpace(x.Request.PolicyNumber), () =>
-            {
-                RuleFor(x => x.Request.PolicyNumber!)
-                    .MaximumLength(50)
-                    .WithMessage("Policy number cannot exceed 50 characters");
-            });
+            RuleFor(x => x.Request.PolicyNumber!)
+                .MaximumLength(50)
+                .WithMessage("Policy number cannot exceed 50 characters")
+                .When(x => !string.IsNullOrWhiteSpace(x.Request.PolicyNumber));
         }
     }
 }
