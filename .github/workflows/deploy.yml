@@ -35,6 +35,7 @@ jobs:
           file: ./FarmClaim/Dockerfile
           push: true
           provenance: false
+          no-cache: true
           tags: |
             ${{ env.REGISTRY }}/naheel0/farmclaim-backend:${{ github.sha }}
             ${{ env.REGISTRY }}/naheel0/farmclaim-backend:latest

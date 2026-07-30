@@ -374,6 +374,15 @@ builder.Services.AddSignalR();
 var app = builder.Build();
 
 // ============================================
+// STARTUP VERIFICATION
+// ============================================
+var emailServiceType = app.Services.GetRequiredService<FarmClaim.Application.Common.Interfaces.IEmailService>().GetType().Name;
+var elasticApiKey = Environment.GetEnvironmentVariable("ELASTIC_EMAIL_API_KEY");
+Console.WriteLine($"[STARTUP] IEmailService => {emailServiceType}");
+Console.WriteLine($"[STARTUP] ELASTIC_EMAIL_API_KEY => {(string.IsNullOrEmpty(elasticApiKey) ? "NOT SET" : "SET (length=" + elasticApiKey.Length + ")")}");
+Console.WriteLine($"[STARTUP] DummyMode => {app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<FarmClaim.Infrastructure.Configuration.EmailSettings>>().Value.DummyMode}");
+
+// ============================================
 // HTTP PIPELINE
 // ============================================
 if (app.Environment.IsDevelopment())
