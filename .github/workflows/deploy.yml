@@ -53,7 +53,12 @@ jobs:
           az containerapp update \
             -g ${{ env.AZURE_RESOURCE_GROUP }} \
             -n backend \
-            --image ${{ env.REGISTRY }}/naheel0/farmclaim-backend:${{ github.sha }}
+            --image ${{ env.REGISTRY }}/naheel0/farmclaim-backend:${{ github.sha }} \
+            --set-env-vars \
+              "Email__SendGridApiKey=${{ secrets.ELASTIC_EMAIL_API_KEY }}" \
+              "Email__FromEmail=${{ secrets.EMAIL_FROM }}" \
+              "Email__FromName=FarmClaim" \
+              "Email__DummyMode=false"
 
       - name: Health check
         run: |
