@@ -8,7 +8,7 @@ on:
 env:
   AZURE_RESOURCE_GROUP: rg-farmclaim
   REGISTRY: ghcr.io
-  BACKEND_API_URL: https://backend.ashywater-78ecbb49.southeastasia.azurecontainerapps.io
+  BACKEND_API_URL: https://backend.lemonflower-b6ff575f.centralindia.azurecontainerapps.io
 
 jobs:
   deploy-backend:
