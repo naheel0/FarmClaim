@@ -20,7 +20,9 @@ namespace FarmClaim.Infrastructure.JWT
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             var j = _config.GetSection("Jwt");
-            _key = j["Secret"] ?? throw new InvalidOperationException("JWT Secret not configured");
+            _key = Environment.GetEnvironmentVariable("JWT_SECRET")
+                ?? j["Secret"]
+                ?? throw new InvalidOperationException("JWT Secret not configured");
             _issuer = j["Issuer"] ?? throw new InvalidOperationException("JWT Issuer not configured");
             _audience = j["Audience"] ?? throw new InvalidOperationException("JWT Audience not configured");
             _expireMinutes = int.Parse(j["ExpireMinutes"] ?? "60");
