@@ -175,28 +175,24 @@ function AdminOverviewPage() {
           label="Total farmers"
           value={formatNumber(data.totalFarmers)}
           icon={Users}
-          delta={{ value: "8.4%", up: true }}
         />
         <CardStat
           label="Active policies"
           value={formatNumber(data.policiesByStatus.Active ?? 0)}
           icon={FileText}
           accent="amber"
-          delta={{ value: "3.1%", up: true }}
         />
         <CardStat
           label="Pending claims"
           value={formatNumber(data.pendingClaims)}
           icon={Clock}
           accent="rose"
-          delta={{ value: "12 today", up: false }}
         />
         <CardStat
           label="Premium collected"
           value={formatINR(data.totalPremiumCollected)}
           icon={Wallet}
           accent="blue"
-          delta={{ value: "₹48L MoM", up: true }}
         />
       </div>
 
@@ -1235,8 +1231,7 @@ function AdminUsersPage() {
                         <StatusBadge status={u.status} />
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {u.email} · {u.phoneNumber ?? "No phone"} · Joined {formatDate(u.createdAt)}
-                        {u.lastLoginAt && ` · Last login ${formatRelative(u.lastLoginAt)}`}
+                        {u.email}
                       </div>
                     </div>
                     <div className="flex gap-1.5 shrink-0">

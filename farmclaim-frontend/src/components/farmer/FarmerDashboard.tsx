@@ -121,14 +121,31 @@ function OverviewPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Build a small claims-per-month chart
+  // Build claims-per-month chart from real data
   const monthlyData = ((): { month: string; claims: number; payout: number }[] => {
-    const months = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    return months.map((m, i) => ({
-      month: m,
-      claims: (i * 7 + 11) % 9,
-      payout: ((i * 7 + 11) % 9) * 35000 + i * 5000,
-    }));
+    const now = new Date();
+    const months: { label: string; year: number; month: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        label: d.toLocaleString("en-US", { month: "short" }),
+        year: d.getFullYear(),
+        month: d.getMonth(),
+      });
+    }
+    return months.map((m) => {
+      const monthClaims = claims.filter((c) => {
+        const d = new Date(c.createdAt);
+        return d.getMonth() === m.month && d.getFullYear() === m.year;
+      });
+      return {
+        month: m.label,
+        claims: monthClaims.length,
+        payout: monthClaims
+          .filter((c) => c.status === "Paid" && c.approvedAmount)
+          .reduce((sum, c) => sum + (c.approvedAmount ?? 0), 0),
+      };
+    });
   })();
 
   return (
