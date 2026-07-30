@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_RESOURCE_GROUP: rg-farmclaim
+  AZURE_RESOURCE_GROUP: farmclaim
   REGISTRY: ghcr.io
   BACKEND_API_URL: https://backend.lemonflower-b6ff575f.centralindia.azurecontainerapps.io
 
