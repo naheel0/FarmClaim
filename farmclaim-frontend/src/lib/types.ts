@@ -240,7 +240,6 @@ export interface RegisterRequestDto {
   firstName: string;
   lastName: string;
   phoneNumber?: string | null;
-  role: UserRole;
 }
 
 export interface LoginRequestDto {

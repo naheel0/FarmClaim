@@ -10,19 +10,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Eye,
   EyeOff,
-  Shield,
-  User as UserIcon,
   Loader2,
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AuthShell } from "./LoginPage";
-import type { UserRole } from "@/lib/types";
 
 export function SignupPage() {
   const navigate = useApp((s) => s.navigate);
-  const [role, setRole] = useState<UserRole>("Farmer");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -57,7 +53,6 @@ export function SignupPage() {
         firstName,
         lastName,
         phoneNumber: phone || null,
-        role,
       });
       // In live mode the .NET backend already emailed the code.
       toast.success("Account created! Check your email for the OTP.");
@@ -78,39 +73,11 @@ export function SignupPage() {
       footerLink="/login"
       footerLabel="Sign in"
     >
-      <form onSubmit={onSubmit} className="space-y-4">
-        {/* Role toggle */}
-        <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl mb-2">
-          <button
-            type="button"
-            onClick={() => setRole("Farmer")}
-            className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              role === "Farmer"
-                ? "bg-card shadow-sm text-emerald-700"
-                : "text-muted-foreground"
-            }`}
-          >
-            <UserIcon className="h-4 w-4" />
-            Farmer
-          </button>
-          <button
-            type="button"
-            onClick={() => setRole("Admin")}
-            className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              role === "Admin"
-                ? "bg-card shadow-sm text-emerald-700"
-                : "text-muted-foreground"
-            }`}
-          >
-            <Shield className="h-4 w-4" />
-            Admin
-          </button>
-        </div>
-
+      <form onSubmit={onSubmit} className="space-y-5">
         {error && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-50 text-rose-900 text-sm border border-rose-200">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-            {error}
+            <div>{error}</div>
           </div>
         )}
 
@@ -235,7 +202,7 @@ export function SignupPage() {
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            `Create ${role} account`
+            `Create account`
           )}
         </Button>
       </form>
