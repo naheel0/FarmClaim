@@ -5,6 +5,7 @@ import {
   getStoredUser,
   setStoredUser,
   setToken,
+  isTokenExpired,
 } from "./api";
 
 // Hash-based router so the entire app stays on the `/` route.
@@ -90,9 +91,10 @@ export const useApp = create<AppState>((set, get) => ({
     window.addEventListener("hashchange", handler);
     const user = getStoredUser();
     const token = getToken();
+    const expired = isTokenExpired();
     set({
       route: parseHash(),
-      user: token ? user : null,
+      user: token && !expired ? user : null,
       initialized: true,
     });
   },

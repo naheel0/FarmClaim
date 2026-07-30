@@ -15,6 +15,11 @@ import {
   Wallet,
   Sprout,
   CloudRain,
+  Cloud,
+  Sun,
+  CloudDrizzle,
+  CloudSnow,
+  CloudLightning,
   Activity,
   Clock,
 } from "lucide-react";
@@ -35,6 +40,8 @@ import {
   policiesApi,
   claimsApi,
   plansApi,
+  weatherApi,
+  type WeatherData,
 } from "@/lib/api";
 import type {
   ClaimResponseDto,
@@ -241,7 +248,7 @@ function OverviewPage() {
             </Card>
 
             {/* Weather widget */}
-            <WeatherWidget />
+            <WeatherWidget farms={farms} />
           </div>
 
           <div className="grid lg:grid-cols-2 gap-6 mt-6">
@@ -354,67 +361,103 @@ function OverviewPage() {
   );
 }
 
-function WeatherWidget() {
-  // Static demo weather data
-  const weather = {
-    location: "Krishna District, AP",
-    temp: 28,
-    condition: "Partly cloudy",
-    humidity: 72,
-    wind: 12,
-    rainfall: 0,
-    forecast: [
-      { day: "Mon", temp: 29, rain: 10 },
-      { day: "Tue", temp: 28, rain: 65 },
-      { day: "Wed", temp: 27, rain: 80 },
-      { day: "Thu", temp: 28, rain: 35 },
-      { day: "Fri", temp: 30, rain: 5 },
-    ],
-    alert: "Heavy rain expected Tuesday — secure your harvest.",
-  };
+function getWeatherIcon(condition: string) {
+  const c = condition.toLowerCase();
+  if (c.includes("thunder")) return CloudLightning;
+  if (c.includes("snow") || c.includes("sleet")) return CloudSnow;
+  if (c.includes("drizzle")) return CloudDrizzle;
+  if (c.includes("rain") || c.includes("shower")) return CloudRain;
+  if (c.includes("clear") || c.includes("sun")) return Sun;
+  if (c.includes("cloud") || c.includes("overcast")) return Cloud;
+  return CloudRain;
+}
+
+function WeatherWidget({ farms }: { farms?: FarmResponseDto[] }) {
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const farm = farms?.[0];
+    if (!farm || farm.latitude == null || farm.longitude == null) {
+      setLoading(false);
+      setError(true);
+      return;
+    }
+    weatherApi
+      .current(farm.latitude, farm.longitude)
+      .then(setWeather)
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, [farms]);
+
+  const farm = farms?.[0];
+  const Icon = weather ? getWeatherIcon(weather.weatherCondition) : CloudRain;
+
   return (
     <Card className="overflow-hidden border-0 shadow-md bg-gradient-to-br from-emerald-700 via-emerald-800 to-green-900 text-white">
       <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-xs uppercase tracking-widest text-emerald-200">
-              Weather at your farm
+        {loading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-32 bg-white/20" />
+            <Skeleton className="h-8 w-24 bg-white/20" />
+            <div className="grid grid-cols-3 gap-3">
+              <Skeleton className="h-12 bg-white/20" />
+              <Skeleton className="h-12 bg-white/20" />
+              <Skeleton className="h-12 bg-white/20" />
             </div>
-            <div className="text-sm text-emerald-100/80 mt-0.5">{weather.location}</div>
           </div>
-          <CloudRain className="h-8 w-8 text-emerald-200" />
-        </div>
-        <div className="mt-4 flex items-baseline gap-2">
-          <span className="text-5xl font-bold font-serif">{weather.temp}°</span>
-          <span className="text-emerald-100/80">{weather.condition}</span>
-        </div>
-        <div className="grid grid-cols-3 gap-3 mt-5 text-sm">
-          <div>
-            <div className="text-emerald-200 text-xs">Humidity</div>
-            <div className="font-semibold">{weather.humidity}%</div>
+        ) : error || !weather ? (
+          <div className="text-center py-4">
+            <Cloud className="h-10 w-10 text-emerald-300 mx-auto mb-2 opacity-50" />
+            <div className="text-sm text-emerald-200">Weather data unavailable</div>
+            <div className="text-xs text-emerald-300/60 mt-1">Add farm location to see weather</div>
           </div>
-          <div>
-            <div className="text-emerald-200 text-xs">Wind</div>
-            <div className="font-semibold">{weather.wind} km/h</div>
-          </div>
-          <div>
-            <div className="text-emerald-200 text-xs">Rainfall</div>
-            <div className="font-semibold">{weather.rainfall} mm</div>
-          </div>
-        </div>
-        <div className="grid grid-cols-5 gap-1 mt-5 pt-4 border-t border-white/10">
-          {weather.forecast.map((d) => (
-            <div key={d.day} className="text-center">
-              <div className="text-[10px] text-emerald-200">{d.day}</div>
-              <div className="text-sm font-semibold mt-0.5">{d.temp}°</div>
-              <div className="text-[10px] text-emerald-300">{d.rain}%</div>
+        ) : (
+          <>
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-xs uppercase tracking-widest text-emerald-200">
+                  Weather at your farm
+                </div>
+                <div className="text-sm text-emerald-100/80 mt-0.5">
+                  {farm?.name || "Your farm"}
+                </div>
+              </div>
+              <Icon className="h-8 w-8 text-emerald-200" />
             </div>
-          ))}
-        </div>
-        <div className="mt-4 p-2.5 rounded-lg bg-amber-400/20 border border-amber-300/30 text-xs flex items-start gap-2">
-          <span>⚠️</span>
-          <span className="text-amber-100">{weather.alert}</span>
-        </div>
+            <div className="mt-4 flex items-baseline gap-2">
+              <span className="text-5xl font-bold font-serif">
+                {Math.round(weather.temperatureCelsius)}°
+              </span>
+              <span className="text-emerald-100/80">{weather.weatherCondition}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3 mt-5 text-sm">
+              <div>
+                <div className="text-emerald-200 text-xs">Humidity</div>
+                <div className="font-semibold">{Math.round(weather.humidity)}%</div>
+              </div>
+              <div>
+                <div className="text-emerald-200 text-xs">Wind</div>
+                <div className="font-semibold">{Math.round(weather.windSpeedKmh)} km/h</div>
+              </div>
+              <div>
+                <div className="text-emerald-200 text-xs">Rainfall</div>
+                <div className="font-semibold">{weather.dailyRainfall} mm</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-white/10 text-xs">
+              <div className="flex items-center gap-2">
+                <Sun className="h-3.5 w-3.5 text-emerald-300" />
+                <span className="text-emerald-200">High {Math.round(weather.dailyMaxTemp)}°</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CloudRain className="h-3.5 w-3.5 text-emerald-300" />
+                <span className="text-emerald-200">Low {Math.round(weather.dailyMinTemp)}°</span>
+              </div>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

@@ -179,12 +179,11 @@ export function SignupPage() {
           </div>
         </div>
 
-        <div className="flex items-start gap-2 pt-1">
+        <div className="flex items-start gap-3">
           <Checkbox
             id="terms"
             checked={agree}
             onCheckedChange={(v) => setAgree(v === true)}
-            className="mt-1"
           />
           <Label htmlFor="terms" className="text-sm text-muted-foreground font-normal cursor-pointer leading-relaxed">
             I agree to the{" "}

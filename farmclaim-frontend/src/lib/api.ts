@@ -48,12 +48,53 @@ export function setStoredUser(u: UserDto | null) {
   else localStorage.removeItem(USER_KEY);
 }
 
+function getTokenExpiry(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.exp ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isTokenExpired(): boolean {
+  const token = getToken();
+  if (!token) return true;
+  const expiry = getTokenExpiry(token);
+  if (!expiry) return false;
+  return Date.now() >= expiry - 60000;
+}
+
 class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
     super(message);
     this.status = status;
   }
+}
+
+let isRefreshing = false;
+let refreshPromise: Promise<string> | null = null;
+
+function clearAuth() {
+  setToken(null);
+  setStoredUser(null);
+  if (typeof window !== "undefined") {
+    window.location.hash = "/login";
+  }
+}
+
+async function doRefresh(): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/v1/Auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) throw new Error("Refresh failed");
+  const data = await res.json();
+  setToken(data.accessToken);
+  setStoredUser(data.user);
+  return data.accessToken;
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -67,19 +108,29 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const method = (options.method || "GET").toUpperCase();
-  if (method !== "GET") {
-    console.log(`[API] ${method} ${path}`, { hasBody: !!options.body, hasToken: !!token });
+
+  let res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
+  if (res.status === 401 && !path.includes("/Auth/")) {
+    try {
+      if (!isRefreshing) {
+        isRefreshing = true;
+        refreshPromise = doRefresh();
+      }
+      const newToken = await refreshPromise;
+      headers["Authorization"] = `Bearer ${newToken}`;
+      res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    } catch {
+      clearAuth();
+      throw new ApiError("Session expired. Please sign in.", 401);
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    if (res.status === 403) {
-      console.error(`[API] 403 Forbidden: ${method} ${path}`, { responseText: text, token: token ? token.substring(0, 30) + "..." : null });
-    }
     throw new ApiError(text || res.statusText, res.status);
   }
   if (res.status === 204) return undefined as T;
@@ -113,10 +164,10 @@ export const authApi = {
       { method: "POST", body: JSON.stringify({ email }) }
     ),
   login: (dto: LoginRequestDto) =>
-    request<{ accessToken: string; user: UserDto }>(
+    request<{ accessToken: string; expiresIn: number; user: UserDto }>(
       "/api/v1/Auth/login",
       { method: "POST", body: JSON.stringify(dto) }
-    ).then((res) => ({ token: res.accessToken, refreshToken: "", user: res.user })),
+    ).then((res) => ({ token: res.accessToken, expiresIn: res.expiresIn, user: res.user })),
   logout: () =>
     request<void>("/api/v1/Auth/logout", { method: "POST" }),
   forgotPassword: (email: string) =>
@@ -577,6 +628,31 @@ export const adminApi = {
   getAuditLog: (id: string) =>
     request<AuditLogDto>(
       `/api/v1/Admin/AuditLogs/${id}`,
+      { method: "GET" }
+    ),
+};
+
+// ---- WEATHER ----
+export interface WeatherData {
+  temperatureCelsius: number;
+  feelsLikeCelsius: number;
+  humidity: number;
+  windSpeedKmh: number;
+  precipitation: number;
+  weatherCondition: string;
+  weatherCode: number;
+  dailyMaxTemp: number;
+  dailyMinTemp: number;
+  dailyRainfall: number;
+  dailyMaxWind: number;
+  date: string;
+  source: string;
+}
+
+export const weatherApi = {
+  current: (lat: number, lon: number) =>
+    request<WeatherData>(
+      `/api/v1/Weather/current?lat=${lat}&lon=${lon}`,
       { method: "GET" }
     ),
 };

@@ -156,9 +156,9 @@ export function AuthShell({
 }) {
   const navigate = useApp((s) => s.navigate);
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="h-screen grid lg:grid-cols-2">
       {/* Left: form */}
-      <div className="flex flex-col px-6 sm:px-12 lg:px-20 py-8">
+      <div className="flex flex-col px-6 sm:px-12 lg:px-20 py-8 overflow-y-auto">
         <button
           onClick={() => navigate("/")}
           className="flex items-center gap-2.5 self-start group"
@@ -201,7 +201,7 @@ export function AuthShell({
       </div>
 
       {/* Right: hero image */}
-      <div className="hidden lg:block relative overflow-hidden">
+      <div className="hidden lg:block relative overflow-hidden sticky top-0 h-screen">
         <img
           src={HERO_IMG}
           alt="Sunlit green farmland"
