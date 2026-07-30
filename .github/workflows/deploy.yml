@@ -55,7 +55,7 @@ jobs:
       - name: Health check
         run: |
           sleep 30
-          curl -f https://backend.ashywater-78ecbb49.southeastasia.azurecontainerapps.io/api/v1/health || exit 1
+          curl -f https://backend.lemonflower-b6ff575f.centralindia.azurecontainerapps.io/api/v1/health || exit 1
 
   deploy-frontend:
     runs-on: ubuntu-latest
