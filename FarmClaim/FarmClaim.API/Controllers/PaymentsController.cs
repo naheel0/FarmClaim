@@ -20,11 +20,13 @@ namespace FarmClaim.API.Controllers
     public class PaymentsController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly IConfiguration _configuration;
         private readonly ILogger<PaymentsController> _logger;
 
-        public PaymentsController(IMediator mediator, ILogger<PaymentsController> logger)
+        public PaymentsController(IMediator mediator, IConfiguration configuration, ILogger<PaymentsController> logger)
         {
             _mediator = mediator;
+            _configuration = configuration;
             _logger = logger;
         }
 
@@ -119,6 +121,17 @@ namespace FarmClaim.API.Controllers
                 _logger.LogError(ex, "Failed to get payment for policy {PolicyId}", policyId);
                 return StatusCode(500, new { error = "Failed to load payment details." });
             }
+        }
+
+        // GET /api/v1/config/razorpay-key
+        [HttpGet("/api/v1/config/razorpay-key")]
+        [AllowAnonymous]
+        public IActionResult GetRazorpayKeyId()
+        {
+            var keyId = _configuration["Razorpay:KeyId"];
+            if (string.IsNullOrEmpty(keyId) || keyId.Contains("YOUR_KEY_ID"))
+                return NotFound(new { error = "Payment not configured" });
+            return Ok(new { keyId });
         }
 
         // POST /api/v1/Payments/webhook

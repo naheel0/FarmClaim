@@ -20,6 +20,7 @@ namespace FarmClaim.Infrastructure.Data
         public DbSet<EmailVerificationCode> EmailVerificationCodes { get; set; } = null!;
         public DbSet<EmailChangeToken> EmailChangeTokens { get; set; } = null!;
         public DbSet<Payment> Payments { get; set; } = null!;
+        public DbSet<WebhookEvent> WebhookEvents { get; set; } = null!;
         public DbSet<AuditLog> AuditLogs { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

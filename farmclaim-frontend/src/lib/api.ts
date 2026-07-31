@@ -350,8 +350,17 @@ export const claimsApi = {
 };
 
 // ---- PAYMENTS ----
-export const RAZORPAY_KEY_ID =
-  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) || "";
+let cachedRazorpayKey: string | null = null;
+
+async function getRazorpayKeyId(): Promise<string> {
+  if (cachedRazorpayKey) return cachedRazorpayKey;
+  const res = await fetch(`${API_BASE}/api/v1/config/razorpay-key`);
+  if (!res.ok) throw new Error("Payment not configured. Please try again later.");
+  const data = await res.json();
+  if (!data.keyId) throw new Error("Payment key not found.");
+  cachedRazorpayKey = data.keyId;
+  return data.keyId;
+}
 
 let razorpayLoader: Promise<void> | null = null;
 function loadRazorpay(): Promise<void> {
@@ -400,18 +409,17 @@ export const paymentsApi = {
     user?: { name?: string; email?: string; phone?: string }
   ): Promise<RazorpayCheckoutResult> => {
     try {
-      const order = await paymentsApi.createOrder(policyId);
-
-      if (!RAZORPAY_KEY_ID) {
-        throw new Error("Razorpay key not configured. Set NEXT_PUBLIC_RAZORPAY_KEY_ID.");
-      }
+      const [order, razorpayKey] = await Promise.all([
+        paymentsApi.createOrder(policyId),
+        getRazorpayKeyId(),
+      ]);
 
       await loadRazorpay();
       const Razorpay = (window as any).Razorpay;
       if (!Razorpay) throw new Error("Razorpay SDK not loaded");
 
       const options = {
-        key: RAZORPAY_KEY_ID,
+        key: razorpayKey,
         amount: order.amountInRupees * 100,
         currency: order.currency,
         order_id: order.orderId,

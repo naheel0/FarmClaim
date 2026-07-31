@@ -80,33 +80,43 @@ namespace FarmClaim.Infrastructure.Services
             _logger.LogInformation("Creating Razorpay order: Amount={Amount}, Receipt={Receipt}",
                 amountInRupees, receipt);
 
-            // Razorpay SDK doesn't have async methods, so use Task.Run
-            var order = await Task.Run(() => client.Order.Create(orderDict), ct);
-
-            // Safely extract values with local variables to satisfy nullable analysis
-            var idObj = order["id"];
-            var statusObj = order["status"];
-            var amountDueObj = order["amount_due"];
-
-            string orderId = idObj != null ? (string)idObj.ToString()! : string.Empty;
-            string orderStatus = statusObj != null ? (string)statusObj.ToString()! : "unknown";
-            long amountDue = amountDueObj != null
-                ? long.TryParse((string)amountDueObj.ToString()!, out var due) ? due : 0
-                : 0;
-
-            _logger.LogInformation("Razorpay order created: Id={OrderId}, Status={Status}, Due={Due}",
-                orderId, orderStatus, amountDue);
-
-            return new CreateOrderResponseDto
+            try
             {
-                OrderId = orderId,
-                AmountInPaise = amountDue,
-                AmountInRupees = amountInRupees,
-                Currency = currency,
-                RazorpayKeyId = _settings.KeyId,
-                ReceiptNumber = receipt,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(15)
-            };
+                // Razorpay SDK doesn't have async methods, so use Task.Run
+                var order = await Task.Run(() => client.Order.Create(orderDict), ct);
+
+                // Safely extract values with local variables to satisfy nullable analysis
+                var idObj = order["id"];
+                var statusObj = order["status"];
+                var amountDueObj = order["amount_due"];
+
+                string orderId = idObj != null ? (string)idObj.ToString()! : string.Empty;
+                string orderStatus = statusObj != null ? (string)statusObj.ToString()! : "unknown";
+                long amountDue = amountDueObj != null
+                    ? long.TryParse((string)amountDueObj.ToString()!, out var due) ? due : 0
+                    : 0;
+
+                _logger.LogInformation("Razorpay order created: Id={OrderId}, Status={Status}, Due={Due}",
+                    orderId, orderStatus, amountDue);
+
+                return new CreateOrderResponseDto
+                {
+                    OrderId = orderId,
+                    AmountInPaise = amountDue,
+                    AmountInRupees = amountInRupees,
+                    Currency = currency,
+                    RazorpayKeyId = _settings.KeyId,
+                    ReceiptNumber = receipt,
+                    ExpiresAt = DateTime.UtcNow.AddMinutes(15)
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Razorpay order creation failed for PolicyId: {PolicyId}, Amount: {Amount}",
+                    policyId, amountInRupees);
+                throw new InvalidOperationException(
+                    $"Payment gateway error: {ex.Message}. Please try again or contact support.");
+            }
         }
 
         // ============================================

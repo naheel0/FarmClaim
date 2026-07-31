@@ -24,42 +24,84 @@ namespace FarmClaim.Application.Features.Payments.Commands.ProcessWebhookEvent
         public async Task<bool> Handle(ProcessWebhookEventCommand cmd, CancellationToken ct)
         {
             var evt = cmd.Event;
-            _logger.LogInformation("Processing Razorpay webhook: Event={Event}, PaymentId={PaymentId}",
-                evt.Event, evt.Payload.Payment?.Id ?? evt.Payload.Refund?.PaymentId);
 
-            switch (evt.Event)
+            // Generate a unique event ID from the payload (Razorpay doesn't always provide event.id)
+            var eventId = !string.IsNullOrEmpty(evt.AccountId)
+                ? $"{evt.Event}_{evt.CreatedAt}_{evt.Payload.Payment?.Id ?? evt.Payload.Refund?.Id ?? "unknown"}"
+                : $"{evt.Event}_{evt.CreatedAt}_{DateTime.UtcNow.Ticks}";
+
+            _logger.LogInformation("Processing Razorpay webhook: Event={Event}, EventId={EventId}",
+                evt.Event, eventId);
+
+            // IDEMPOTENCY: Check if this event was already processed
+            var existingEvent = await _context.WebhookEvents
+                .FirstOrDefaultAsync(e => e.EventId == eventId && e.ProcessedAt != null, ct);
+
+            if (existingEvent != null)
             {
-                case "payment.captured":
-                    await HandlePaymentCapturedAsync(evt, ct);
-                    break;
+                _logger.LogInformation("Duplicate webhook event {EventId} — skipping", eventId);
+                return true;
+            }
 
-                case "payment.authorized":
-                    _logger.LogInformation("Payment authorized (no action needed for auto-capture)");
-                    break;
+            // Record the event
+            var webhookEvent = new WebhookEvent
+            {
+                EventId = eventId,
+                EventType = evt.Event,
+                Payload = cmd.RawPayload,
+                OrderId = evt.Payload.Payment?.OrderId ?? evt.Payload.Order?.Id,
+                PaymentId = evt.Payload.Payment?.Id ?? evt.Payload.Refund?.PaymentId
+            };
 
-                case "payment.failed":
-                    await HandlePaymentFailedAsync(evt, ct);
-                    break;
+            try
+            {
+                switch (evt.Event)
+                {
+                    case "payment.captured":
+                        await HandlePaymentCapturedAsync(evt, ct);
+                        break;
 
-                case "refund.processed":
-                    await HandleRefundProcessedAsync(evt, ct);
-                    break;
+                    case "payment.authorized":
+                        _logger.LogInformation("Payment authorized (no action needed for auto-capture)");
+                        break;
 
-                case "refund.created":
-                    _logger.LogInformation("Refund created for payment {PaymentId}", evt.Payload.Refund?.PaymentId);
-                    break;
+                    case "payment.failed":
+                        await HandlePaymentFailedAsync(evt, ct);
+                        break;
 
-                case "order.paid":
-                    _logger.LogInformation("Order {OrderId} marked as paid", evt.Payload.Order?.Id);
-                    break;
+                    case "refund.processed":
+                        await HandleRefundProcessedAsync(evt, ct);
+                        break;
 
-                case "payment.downtime":
-                    _logger.LogWarning("Razorpay payment downtime notification received");
-                    break;
+                    case "refund.created":
+                        _logger.LogInformation("Refund created for payment {PaymentId}", evt.Payload.Refund?.PaymentId);
+                        break;
 
-                default:
-                    _logger.LogInformation("Unhandled event type: {Event}", evt.Event);
-                    break;
+                    case "order.paid":
+                        _logger.LogInformation("Order {OrderId} marked as paid", evt.Payload.Order?.Id);
+                        break;
+
+                    case "payment.downtime":
+                        _logger.LogWarning("Razorpay payment downtime notification received");
+                        break;
+
+                    default:
+                        _logger.LogInformation("Unhandled event type: {Event}", evt.Event);
+                        break;
+                }
+
+                webhookEvent.ProcessedAt = DateTime.UtcNow;
+            }
+            catch (Exception ex)
+            {
+                webhookEvent.ProcessingError = ex.Message;
+                _logger.LogError(ex, "Failed to process webhook event {EventId}", eventId);
+                throw;
+            }
+            finally
+            {
+                _context.WebhookEvents.Add(webhookEvent);
+                await _context.SaveChangesAsync(ct);
             }
 
             return true;
