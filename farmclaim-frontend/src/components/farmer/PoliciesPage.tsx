@@ -205,7 +205,7 @@ function PolicyDetail({ id }: { id: string }) {
   if (!policy) return <div>Policy not found.</div>;
 
   const canEdit = policy.status === "Pending";
-  const canDelete = policy.status === "Pending";
+  const canDelete = policy.status === "Pending" || policy.status === "Active";
 
   return (
     <div>
