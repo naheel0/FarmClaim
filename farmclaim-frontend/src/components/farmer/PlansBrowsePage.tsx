@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useApp } from "@/lib/store";
-import { plansApi, farmsApi, policiesApi } from "@/lib/api";
+import { plansApi, farmsApi, policiesApi, paymentsApi } from "@/lib/api";
 import type { InsurancePlanDto, FarmResponseDto } from "@/lib/types";
 import { PageHeader } from "@/components/layout/DashboardShell";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +24,8 @@ import {
   Shield,
   IndianRupee,
   Loader2,
+  CheckCircle2,
+  CreditCard,
 } from "lucide-react";
 import { formatINR } from "@/lib/utils";
 import { toast } from "sonner";
@@ -312,9 +314,13 @@ function BuyPlanDialog({
   onClose: () => void;
   onBought: () => void;
 }) {
+  const user = useApp((s) => s.user);
   const [farmId, setFarmId] = useState(farms[0]?.id ?? "");
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
+  const [paying, setPaying] = useState(false);
+  type PayStep = "idle" | "creating" | "checkout" | "verifying" | "done";
+  const [payStep, setPayStep] = useState<PayStep>("idle");
 
   const farm = farms.find((f) => f.id === farmId);
   const premium = farm ? plan.premiumRatePerHectare * farm.areaInHectares : 0;
@@ -322,18 +328,64 @@ function BuyPlanDialog({
 
   const buy = async () => {
     setSaving(true);
+    setPayStep("creating");
     try {
-      await policiesApi.create({
+      // 1. Create the policy (status: Pending)
+      const policy = await policiesApi.create({
         farmId,
         insurancePlanId: plan.id,
         startDate: new Date(startDate).toISOString(),
       });
+
+      // 2. Open Razorpay checkout for the premium
+      setPayStep("checkout");
+      setPaying(true);
+      const result = await paymentsApi.checkout(policy.id, {
+        name: user ? `${user.firstName} ${user.lastName}` : undefined,
+        email: user?.email ?? undefined,
+        phone: user?.phoneNumber ?? undefined,
+      });
+      setPaying(false);
+
+      if (!result.ok) {
+        toast.error(
+          result.error
+            ? `Payment failed: ${result.error}`
+            : "Payment failed — policy remains pending"
+        );
+        onBought();
+        return;
+      }
+
+      // 3. Verify signature server-side
+      setPayStep("verifying");
+      if (result.verified) {
+        toast.success(`Payment verified · ${result.paymentId}`, {
+          description: "Policy is now active.",
+        });
+      } else {
+        toast.warning("Payment completed but verification pending", {
+          description:
+            "Your policy is created. Our team will reconcile the payment manually if needed.",
+        });
+      }
+      setPayStep("done");
       onBought();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Purchase failed");
+      setPayStep("idle");
     } finally {
       setSaving(false);
+      setPaying(false);
     }
+  };
+
+  const stepLabel: Record<PayStep, string> = {
+    idle: "Buy policy",
+    creating: "Creating policy…",
+    checkout: "Opening Razorpay…",
+    verifying: "Verifying payment…",
+    done: "Done",
   };
 
   return (
@@ -402,6 +454,16 @@ function BuyPlanDialog({
                   <span className="text-muted-foreground">Duration</span>
                   <span>{plan.policyDurationMonths} months</span>
                 </div>
+                {payStep !== "idle" && (
+                  <div className="mt-2 pt-2 border-t border-emerald-200 flex items-center gap-2 text-xs text-emerald-900">
+                    {payStep === "done" ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
+                    ) : (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    )}
+                    <span>{stepLabel[payStep]}</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2 mt-5">
@@ -410,10 +472,15 @@ function BuyPlanDialog({
                 </Button>
                 <Button
                   onClick={buy}
-                  disabled={saving}
+                  disabled={saving || paying}
                   className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white"
                 >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : `Pay ${formatINR(premium)}`}
+                  {saving || paying ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="h-4 w-4" />
+                  )}
+                  {saving || paying ? stepLabel[payStep] : `Pay ${formatINR(premium)} & buy`}
                 </Button>
               </div>
             </>

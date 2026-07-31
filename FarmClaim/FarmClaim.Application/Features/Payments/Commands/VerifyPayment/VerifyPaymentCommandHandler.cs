@@ -102,7 +102,8 @@ namespace FarmClaim.Application.Features.Payments.Commands.VerifyPayment
             if (payment.Policy != null && payment.Policy.Status == PolicyStatus.Pending)
             {
                 payment.Policy.Status = PolicyStatus.Active;
-                _logger.LogInformation("Policy {PolicyId} auto-activated after payment", payment.PolicyId);
+                payment.Policy.ApprovedAt = DateTime.UtcNow;
+                _logger.LogInformation("Policy {PolicyId} auto-activated after payment {PaymentId}", payment.PolicyId, payment.Id);
             }
 
             if (details != null)

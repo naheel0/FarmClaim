@@ -256,6 +256,15 @@ namespace FarmClaim.Infrastructure.Services
         // ============================================
         public bool VerifyWebhookSignature(string payload, string signature)
         {
+            var isProduction = string.Equals(
+                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
+                "Production", StringComparison.OrdinalIgnoreCase);
+            if (_settings.DummyMode && !isProduction)
+            {
+                _logger.LogWarning("DUMMY: Skipping webhook signature verification");
+                return true;
+            }
+
             if (string.IsNullOrEmpty(_settings.WebhookSecret))
             {
                 _logger.LogWarning("WebhookSecret not configured - skipping webhook verification");
