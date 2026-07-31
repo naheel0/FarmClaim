@@ -6,6 +6,7 @@
         Active = 1,
         Expired = 2,
         Rejected = 3,
-        Cancelled = 4
+        Cancelled = 4,
+        PaymentReceived = 6
     }
 }

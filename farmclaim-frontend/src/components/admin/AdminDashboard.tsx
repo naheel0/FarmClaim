@@ -25,6 +25,11 @@ import {
   AlertTriangle,
   Eye,
   Brain,
+  Globe,
+  User,
+  ArrowRight,
+  Link,
+  Code,
 } from "lucide-react";
 import {
   DashboardShell,
@@ -1465,6 +1470,9 @@ function AdminAuditPage() {
                         {log.action}
                       </Badge>
                       <span className="text-sm font-medium">{log.userName}</span>
+                      {log.userRole && (
+                        <Badge variant="secondary" className="text-[9px] font-mono">{log.userRole}</Badge>
+                      )}
                       <span className="text-xs text-muted-foreground">
                         on {log.resourceType}
                       </span>
@@ -1483,48 +1491,179 @@ function AdminAuditPage() {
       )}
 
       <Dialog open={!!detailLogId} onOpenChange={(o) => { if (!o) setDetailLogId(null); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Audit Log Detail</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <ScrollText className="h-5 w-5 text-emerald-600" />
+              Audit Log Detail
+            </DialogTitle>
           </DialogHeader>
           {detailLoading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-2/3" />
+            <div className="space-y-4">
+              <Skeleton className="h-5 w-1/3" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
             </div>
           ) : logDetail ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="font-mono text-[10px]">{logDetail.action}</Badge>
+            <div className="space-y-5">
+              {/* Action badge + description */}
+              <div className="flex items-start gap-3">
+                <Badge variant="outline" className="font-mono text-[10px] shrink-0">{logDetail.action}</Badge>
+                {logDetail.details && (
+                  <p className="text-sm text-foreground/80 leading-relaxed">{logDetail.details}</p>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wide">User</div>
-                  <div className="font-medium mt-1">{logDetail.userName}</div>
+
+              {/* WHO section */}
+              <div className="rounded-lg border bg-muted/30">
+                <div className="px-4 py-2.5 border-b flex items-center gap-2">
+                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Who</span>
                 </div>
-                <div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wide">IP address</div>
-                  <div className="font-mono mt-1">{logDetail.ipAddress}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Resource</div>
-                  <div className="font-medium mt-1">{logDetail.resourceType}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Resource ID</div>
-                  <div className="font-mono mt-1">{logDetail.resourceId ?? "—"}</div>
-                </div>
-                <div className="col-span-2">
-                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Timestamp</div>
-                  <div className="font-medium mt-1">{formatDate(logDetail.timestamp, { dateStyle: "full", timeStyle: "medium" } as Intl.DateTimeFormatOptions)}</div>
-                </div>
-                <div className="col-span-2">
-                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Details</div>
-                  <p className="text-sm mt-1 whitespace-pre-wrap">{logDetail.details}</p>
+                <div className="grid grid-cols-2 gap-px bg-border/50">
+                  <div className="bg-background px-4 py-3">
+                    <div className="text-[11px] text-muted-foreground uppercase tracking-wide">User</div>
+                    <div className="text-sm font-medium mt-1">{logDetail.userName || "—"}</div>
+                  </div>
+                  <div className="bg-background px-4 py-3">
+                    <div className="text-[11px] text-muted-foreground uppercase tracking-wide">Role</div>
+                    <div className="text-sm font-medium mt-1">
+                      {logDetail.userRole ? (
+                        <Badge variant="secondary" className="text-[10px] font-mono">{logDetail.userRole}</Badge>
+                      ) : "—"}
+                    </div>
+                  </div>
+                  <div className="bg-background px-4 py-3">
+                    <div className="text-[11px] text-muted-foreground uppercase tracking-wide">IP Address</div>
+                    <div className="text-sm font-mono mt-1">{logDetail.ipAddress || "—"}</div>
+                  </div>
+                  <div className="bg-background px-4 py-3">
+                    <div className="text-[11px] text-muted-foreground uppercase tracking-wide">User Agent</div>
+                    <div className="text-[11px] font-mono mt-1 text-muted-foreground truncate" title={logDetail.userAgent ?? ""}>
+                      {logDetail.userAgent || "—"}
+                    </div>
+                  </div>
                 </div>
               </div>
+
+              {/* WHAT section */}
+              <div className="rounded-lg border bg-muted/30">
+                <div className="px-4 py-2.5 border-b flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">What</span>
+                </div>
+                <div className="grid grid-cols-2 gap-px bg-border/50">
+                  <div className="bg-background px-4 py-3">
+                    <div className="text-[11px] text-muted-foreground uppercase tracking-wide">Resource</div>
+                    <div className="text-sm font-medium mt-1">{logDetail.resourceType}</div>
+                  </div>
+                  <div className="bg-background px-4 py-3">
+                    <div className="text-[11px] text-muted-foreground uppercase tracking-wide">Resource ID</div>
+                    <div className="text-sm font-mono mt-1 truncate" title={logDetail.resourceId ?? ""}>
+                      {logDetail.resourceId ? (
+                        <span className="text-xs">{logDetail.resourceId.length > 20 ? logDetail.resourceId.slice(0, 8) + "…" + logDetail.resourceId.slice(-6) : logDetail.resourceId}</span>
+                      ) : "—"}
+                    </div>
+                  </div>
+                  <div className="bg-background px-4 py-3 col-span-2">
+                    <div className="text-[11px] text-muted-foreground uppercase tracking-wide">Timestamp</div>
+                    <div className="text-sm font-medium mt-1">{formatDate(logDetail.timestamp, { dateStyle: "full", timeStyle: "medium" } as Intl.DateTimeFormatOptions)}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CHANGES section — only if oldValues or newValues exist */}
+              {(logDetail.oldValues || logDetail.newValues) && (() => {
+                let oldVals: Record<string, any> = {};
+                let newVals: Record<string, any> = {};
+                try { if (logDetail.oldValues) oldVals = JSON.parse(logDetail.oldValues); } catch {}
+                try { if (logDetail.newValues) newVals = JSON.parse(logDetail.newValues); } catch {}
+                const allKeys = [...new Set([...Object.keys(oldVals), ...Object.keys(newVals)])];
+                if (allKeys.length === 0) return null;
+                return (
+                  <div className="rounded-lg border bg-muted/30">
+                    <div className="px-4 py-2.5 border-b flex items-center gap-2">
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Changes</span>
+                      {logDetail.changedColumns && (
+                        <Badge variant="outline" className="text-[9px] font-mono ml-auto">{logDetail.changedColumns}</Badge>
+                      )}
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-1/4">Field</th>
+                            <th className="text-left px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[37.5%]">Before</th>
+                            <th className="text-left px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[37.5%]">After</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allKeys.map((key) => {
+                            const oldVal = oldVals[key];
+                            const newVal = newVals[key];
+                            const isChanged = JSON.stringify(oldVal) !== JSON.stringify(newVal);
+                            return (
+                              <tr key={key} className={`border-b last:border-0 ${isChanged ? "" : "opacity-50"}`}>
+                                <td className="px-4 py-2 font-mono text-xs font-medium">{key}</td>
+                                <td className="px-4 py-2">
+                                  {oldVal !== undefined && oldVal !== null ? (
+                                    <span className="text-xs text-red-600 bg-red-50 px-1.5 py-0.5 rounded line-through">
+                                      {typeof oldVal === "object" ? JSON.stringify(oldVal) : String(oldVal)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2">
+                                  {newVal !== undefined && newVal !== null ? (
+                                    <span className="text-xs text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-medium">
+                                      {typeof newVal === "object" ? JSON.stringify(newVal) : String(newVal)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* REQUEST section */}
+              {(logDetail.httpMethod || logDetail.httpPath || logDetail.correlationId) && (
+                <div className="rounded-lg border bg-muted/30">
+                  <div className="px-4 py-2.5 border-b flex items-center gap-2">
+                    <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Request</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-px bg-border/50">
+                    {logDetail.httpMethod && (
+                      <div className="bg-background px-4 py-3">
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wide">Method</div>
+                        <div className="text-sm font-mono font-bold mt-1">{logDetail.httpMethod}</div>
+                      </div>
+                    )}
+                    {logDetail.httpPath && (
+                      <div className={`bg-background px-4 py-3 ${logDetail.httpMethod ? "" : "col-span-2"}`}>
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wide">Path</div>
+                        <div className="text-xs font-mono mt-1 text-muted-foreground break-all">{logDetail.httpPath}</div>
+                      </div>
+                    )}
+                    {logDetail.correlationId && (
+                      <div className="bg-background px-4 py-3 col-span-2">
+                        <div className="text-[11px] text-muted-foreground uppercase tracking-wide">Correlation ID</div>
+                        <div className="text-xs font-mono mt-1 text-muted-foreground break-all">{logDetail.correlationId}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Log not found.</p>
@@ -1539,7 +1678,7 @@ function AdminAuditPage() {
 function AdminPoliciesPage() {
   const [policies, setPolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"pending" | "active" | "rejected" | "all">("pending");
+  const [tab, setTab] = useState<"pending" | "payment_received" | "active" | "rejected" | "all">("pending");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -1551,7 +1690,9 @@ function AdminPoliciesPage() {
   const [selectedPolicy, setSelectedPolicy] = useState<any | null>(null);
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
   const [busy, setBusy] = useState(false);
 
   const loadPolicies = async (p: number, statusFilter?: string) => {
@@ -1594,7 +1735,7 @@ function AdminPoliciesPage() {
     setBusy(true);
     try {
       await adminApi.approvePolicy(selectedPolicy.id);
-      toast.success("Policy approved");
+      toast.success("Policy approved and activated");
       setPolicies((prev) => prev.filter((p) => p.id !== selectedPolicy.id));
       setTotalCount((c) => c - 1);
       setApproveOpen(false);
@@ -1611,7 +1752,7 @@ function AdminPoliciesPage() {
     setBusy(true);
     try {
       await adminApi.rejectPolicy(selectedPolicy.id, rejectReason);
-      toast.success("Policy rejected");
+      toast.success("Policy rejected" + (selectedPolicy.paymentStatus === "Paid" ? " (refund initiated)" : ""));
       setPolicies((prev) => prev.filter((p) => p.id !== selectedPolicy.id));
       setTotalCount((c) => c - 1);
       setRejectOpen(false);
@@ -1624,8 +1765,27 @@ function AdminPoliciesPage() {
     }
   };
 
+  const doCancel = async () => {
+    if (!selectedPolicy) return;
+    setBusy(true);
+    try {
+      await adminApi.cancelPolicy(selectedPolicy.id, cancelReason);
+      toast.success("Policy cancelled" + (selectedPolicy.paymentStatus === "Paid" ? " (refund initiated)" : ""));
+      setPolicies((prev) => prev.filter((p) => p.id !== selectedPolicy.id));
+      setTotalCount((c) => c - 1);
+      setCancelOpen(false);
+      setSelectedPolicy(null);
+      setCancelReason("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to cancel");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const tabs = [
     { key: "pending" as const, label: "Pending", count: tab === "pending" ? totalCount : undefined },
+    { key: "payment_received" as const, label: "Paid (Awaiting)" },
     { key: "active" as const, label: "Active" },
     { key: "rejected" as const, label: "Rejected" },
     { key: "all" as const, label: "All" },
@@ -1681,7 +1841,10 @@ function AdminPoliciesPage() {
                     <th className="text-left p-3 font-medium">Sum Insured</th>
                     <th className="text-left p-3 font-medium">Start</th>
                     <th className="text-left p-3 font-medium">Status</th>
-                    {tab === "pending" && <th className="text-right p-3 font-medium">Actions</th>}
+                    <th className="text-left p-3 font-medium">Payment</th>
+                    {(tab === "pending" || tab === "payment_received" || tab === "active") && (
+                      <th className="text-right p-3 font-medium">Actions</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -1697,24 +1860,48 @@ function AdminPoliciesPage() {
                       <td className="p-3 text-emerald-700 font-medium">{formatINR(p.sumInsured)}</td>
                       <td className="p-3 text-xs">{formatDate(p.startDate)}</td>
                       <td className="p-3"><StatusBadge status={p.status} /></td>
-                      {tab === "pending" && (
+                      <td className="p-3">
+                        <Badge
+                          variant={p.paymentStatus === "Paid" ? "default" : "outline"}
+                          className={p.paymentStatus === "Paid"
+                            ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                            : "text-amber-700 border-amber-200"}
+                        >
+                          {p.paymentStatus}
+                        </Badge>
+                      </td>
+                      {(tab === "pending" || tab === "payment_received" || tab === "active") && (
                         <td className="p-3 text-right">
                           <div className="flex gap-1 justify-end">
-                            <Button
-                              size="sm"
-                              className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1 h-8"
-                              onClick={() => { setSelectedPolicy(p); setApproveOpen(true); }}
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" /> Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-rose-600 hover:bg-rose-50 border-rose-200 gap-1 h-8"
-                              onClick={() => { setSelectedPolicy(p); setRejectOpen(true); }}
-                            >
-                              <XCircle className="h-3.5 w-3.5" /> Reject
-                            </Button>
+                            {(tab === "pending" || tab === "payment_received") && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1 h-8"
+                                  onClick={() => { setSelectedPolicy(p); setApproveOpen(true); }}
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-rose-600 hover:bg-rose-50 border-rose-200 gap-1 h-8"
+                                  onClick={() => { setSelectedPolicy(p); setRejectOpen(true); }}
+                                >
+                                  <XCircle className="h-3.5 w-3.5" /> Reject
+                                </Button>
+                              </>
+                            )}
+                            {tab === "active" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-amber-600 hover:bg-amber-50 border-amber-200 gap-1 h-8"
+                                onClick={() => { setSelectedPolicy(p); setCancelOpen(true); }}
+                              >
+                                <Power className="h-3.5 w-3.5" /> Cancel
+                              </Button>
+                            )}
                           </div>
                         </td>
                       )}
@@ -1765,7 +1952,17 @@ function AdminPoliciesPage() {
                   <h4 className="font-serif text-lg font-semibold">{lookupPolicy.cropType} · {lookupPolicy.provider}</h4>
                   <p className="text-sm text-muted-foreground">Policy #{lookupPolicy.policyNumber} · Farm: {lookupPolicy.farmName}</p>
                 </div>
-                <StatusBadge status={lookupPolicy.status} />
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={lookupPolicy.paymentStatus === "Paid" ? "default" : "outline"}
+                    className={lookupPolicy.paymentStatus === "Paid"
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                      : "text-amber-700 border-amber-200"}
+                  >
+                    {lookupPolicy.paymentStatus}
+                  </Badge>
+                  <StatusBadge status={lookupPolicy.status} />
+                </div>
               </div>
               <div className="grid sm:grid-cols-3 gap-4 text-sm mb-4">
                 <div>
@@ -1781,7 +1978,7 @@ function AdminPoliciesPage() {
                   <div className="font-semibold mt-1 text-emerald-700">{formatINR(lookupPolicy.sumInsured)}</div>
                 </div>
               </div>
-              {lookupPolicy.status === "Pending" && (
+              {(lookupPolicy.status === "Pending" || lookupPolicy.status === "PaymentReceived") && (
                 <div className="flex gap-2 pt-4 border-t">
                   <Button
                     onClick={() => { setSelectedPolicy(lookupPolicy); setApproveOpen(true); }}
@@ -1798,9 +1995,20 @@ function AdminPoliciesPage() {
                   </Button>
                 </div>
               )}
-              {lookupPolicy.status === "Active" && lookupPolicy.approvedByName && (
-                <div className="pt-4 border-t text-sm text-muted-foreground">
-                  Approved by {lookupPolicy.approvedByName} on {formatDate(lookupPolicy.approvedAt)}
+              {lookupPolicy.status === "Active" && (
+                <div className="flex gap-2 pt-4 border-t">
+                  {lookupPolicy.approvedByName && (
+                    <span className="text-sm text-muted-foreground mr-auto">
+                      Approved by {lookupPolicy.approvedByName} on {formatDate(lookupPolicy.approvedAt)}
+                    </span>
+                  )}
+                  <Button
+                    onClick={() => { setSelectedPolicy(lookupPolicy); setCancelOpen(true); }}
+                    variant="outline"
+                    className="text-amber-600 hover:bg-amber-50 border-amber-200 gap-1.5"
+                  >
+                    <Power className="h-4 w-4" /> Cancel policy
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -1841,11 +2049,49 @@ function AdminPoliciesPage() {
               placeholder="Enter reason for rejection..."
               autoFocus
             />
+            {selectedPolicy?.paymentStatus === "Paid" && (
+              <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                This policy has a confirmed payment. A refund will be initiated automatically.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
             <Button onClick={doReject} disabled={busy || !rejectReason} className="bg-rose-600 hover:bg-rose-700 text-white">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel dialog */}
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel active policy</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              This will cancel policy <strong>#{selectedPolicy?.policyNumber}</strong> and deactivate it.
+            </p>
+            <Label>Cancellation reason</Label>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              rows={3}
+              placeholder="Enter reason for cancellation..."
+              autoFocus
+            />
+            {selectedPolicy?.paymentStatus === "Paid" && (
+              <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                This policy has a confirmed payment. A refund will be initiated automatically.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelOpen(false)}>Cancel</Button>
+            <Button onClick={doCancel} disabled={busy || !cancelReason} className="bg-amber-600 hover:bg-amber-700 text-white">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm cancel policy"}
             </Button>
           </DialogFooter>
         </DialogContent>

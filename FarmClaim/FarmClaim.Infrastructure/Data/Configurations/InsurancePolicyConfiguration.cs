@@ -53,6 +53,15 @@ namespace FarmClaim.Infrastructure.Data.Configurations
                 .IsRequired(false);
 
             b.HasIndex(p => p.InsurancePlanId);
+
+            // Optimistic concurrency
+            b.Property(p => p.RowVersion).IsRowVersion();
+
+            // Payments relationship
+            b.HasMany(p => p.Payments)
+                .WithOne(p => p.Policy)
+                .HasForeignKey(p => p.PolicyId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

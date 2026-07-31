@@ -88,13 +88,13 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.CreatePolicy
 
             var existingPolicy = await _context.InsurancePolicies
                 .AnyAsync(p => p.FarmId == command.Request.FarmId
-                               && (p.Status == PolicyStatus.Pending || p.Status == PolicyStatus.Active)
+                               && (p.Status == PolicyStatus.Pending || p.Status == PolicyStatus.Active || p.Status == PolicyStatus.PaymentReceived)
                                && !p.IsDeleted, ct);
 
             if (existingPolicy)
                 throw new ValidationException(new List<string>
                 {
-                    "This farm already has a pending or active policy. Wait for approval or cancel it first."
+                    "This farm already has a pending, active, or payment-received policy. Wait for approval or cancel it first."
                 });
 
             var area = farm.AreaInHectares;

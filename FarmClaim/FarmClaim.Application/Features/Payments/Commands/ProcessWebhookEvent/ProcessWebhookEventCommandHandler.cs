@@ -136,12 +136,11 @@ namespace FarmClaim.Application.Features.Payments.Commands.ProcessWebhookEvent
             payment.Fee = paymentDto.Fee.HasValue ? paymentDto.Fee.Value / 100m : null;
             payment.Tax = paymentDto.Tax.HasValue ? paymentDto.Tax.Value / 100m : null;
 
-            // Auto-activate the policy after successful payment
+            // Transition policy from Pending to PaymentReceived (admin must approve to activate)
             if (payment.Policy != null && payment.Policy.Status == PolicyStatus.Pending)
             {
-                payment.Policy.Status = PolicyStatus.Active;
-                payment.Policy.ApprovedAt = DateTime.UtcNow;
-                _logger.LogInformation("Webhook: Policy {PolicyId} auto-activated after payment", payment.PolicyId);
+                payment.Policy.Status = PolicyStatus.PaymentReceived;
+                _logger.LogInformation("Webhook: Policy {PolicyId} transitioned to PaymentReceived after payment", payment.PolicyId);
             }
 
             await _context.SaveChangesAsync(ct);

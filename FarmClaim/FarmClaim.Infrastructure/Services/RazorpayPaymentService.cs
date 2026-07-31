@@ -296,5 +296,90 @@ namespace FarmClaim.Infrastructure.Services
 
             return isValid;
         }
+
+        // ============================================
+        // REFUND PAYMENT
+        // ============================================
+        public async Task<RefundResultDto> RefundPaymentAsync(
+            string razorpayPaymentId,
+            decimal amountInRupees,
+            string reason,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrEmpty(_settings.KeyId) || string.IsNullOrEmpty(_settings.KeySecret))
+                throw new InvalidOperationException("Razorpay KeyId/KeySecret not configured.");
+
+            var isProduction = string.Equals(
+                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
+                "Production", StringComparison.OrdinalIgnoreCase);
+            if (_settings.DummyMode && !isProduction)
+            {
+                _logger.LogInformation("DUMMY: Refunding payment {PaymentId}, Amount={Amount}, Reason={Reason}",
+                    razorpayPaymentId, amountInRupees, reason);
+                return new RefundResultDto
+                {
+                    Success = true,
+                    RefundId = $"refund_dummy_{Guid.NewGuid():N}",
+                    AmountRefunded = amountInRupees,
+                    Status = "processed"
+                };
+            }
+
+            try
+            {
+                RazorpayClient client = new(_settings.KeyId, _settings.KeySecret);
+
+                var refundDict = new Dictionary<string, object>
+                {
+                    { "amount", (long)(amountInRupees * 100) },
+                    { "speed", "optimum" },
+                    { "notes", new Dictionary<string, string>
+                        {
+                            { "reason", reason },
+                            { "source", "FarmClaim API" }
+                        }
+                    }
+                };
+
+                _logger.LogInformation("Initiating refund: PaymentId={PaymentId}, Amount={Amount}, Reason={Reason}",
+                    razorpayPaymentId, amountInRupees, reason);
+
+                var refund = await Task.Run(() =>
+                    client.Payment.Fetch(razorpayPaymentId).Refund(refundDict), ct);
+
+                string refundId = refund["id"]?.ToString() ?? "";
+                string refundStatus = refund["status"]?.ToString() ?? "unknown";
+                decimal refundAmount = 0m;
+                if (refund["amount"] != null)
+                {
+                    string amtStr = refund["amount"].ToString() ?? "";
+                    if (decimal.TryParse(amtStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal parsedAmt))
+                        refundAmount = parsedAmt / 100m;
+                }
+
+                string rid = refundId;
+                string rstatus = refundStatus;
+                decimal ramount = refundAmount;
+                _logger.LogInformation("Refund initiated: RefundId={RefundId}, Status={Status}, Amount={Amount}",
+                    rid, rstatus, ramount);
+
+                return new RefundResultDto
+                {
+                    Success = true,
+                    RefundId = refundId,
+                    AmountRefunded = refundAmount > 0 ? refundAmount : amountInRupees,
+                    Status = refundStatus
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Refund failed for PaymentId={PaymentId}", razorpayPaymentId);
+                return new RefundResultDto
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
     }
 }

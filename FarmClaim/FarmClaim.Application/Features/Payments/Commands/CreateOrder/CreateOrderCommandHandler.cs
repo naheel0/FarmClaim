@@ -49,12 +49,12 @@ namespace FarmClaim.Application.Features.Payments.Commands.CreateOrder
             if (policy.Farm?.UserId != cmd.UserId)
                 throw new ForbiddenException("You can only pay for your own policies.");
 
-            // Allow payment for Pending OR Active policies
-            if (policy.Status != PolicyStatus.Active && policy.Status != PolicyStatus.Pending)
+            // Allow payment only for Pending policies (PaymentReceived means already paid, Active means approved)
+            if (policy.Status != PolicyStatus.Pending)
                 throw new ValidationException(
                     new List<string>
                     {
-                        $"Policy must be Pending or Active to collect payment. Current status: {policy.Status}.",
+                        $"Policy must be Pending to collect payment. Current status: {policy.Status}.",
                     }
                 );
 

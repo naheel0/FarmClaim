@@ -20,5 +20,11 @@ namespace FarmClaim.Application.Common.Interfaces
         Task<PaymentDetailsDto> FetchPaymentDetailsAsync(string paymentId);
 
         bool VerifyWebhookSignature(string payload, string signature);
+
+        Task<RefundResultDto> RefundPaymentAsync(
+            string razorpayPaymentId,
+            decimal amountInRupees,
+            string reason,
+            CancellationToken ct = default);
     }
 }

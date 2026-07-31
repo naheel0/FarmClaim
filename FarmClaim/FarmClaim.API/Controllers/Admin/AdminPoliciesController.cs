@@ -1,6 +1,7 @@
 ﻿using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Admin.Commands.ApprovePolicy;
+using FarmClaim.Application.Features.Admin.Commands.CancelPolicy;
 using FarmClaim.Application.Features.Admin.Commands.RejectPolicy;
 using FarmClaim.Application.Features.Admin.DTOs;
 using FarmClaim.Application.Features.Admin.Queries.GetAllPolicies;
@@ -132,6 +133,46 @@ namespace FarmClaim.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to reject policy {PolicyId}", policyId);
+                return HandleError(ex);
+            }
+        }
+
+        // PUT /api/v1/Admin/Policies/{policyId}/cancel
+        [HttpPut("{policyId}/cancel")]
+        public async Task<IActionResult> CancelPolicy(
+            Guid policyId, [FromBody] CancelPolicyRequestDto request)
+        {
+            try
+            {
+                var adminId = GetAdminId();
+                var result = await _mediator.Send(new CancelPolicyCommand(policyId, adminId, request.Reason));
+
+                var policy = await _context.InsurancePolicies
+                    .Include(p => p.Farm)
+                    .FirstOrDefaultAsync(p => p.Id == policyId);
+                if (policy?.Farm != null)
+                {
+                    await _notificationService.SendClaimUpdateAsync(policy.Farm.UserId, new ClaimNotificationDto
+                    {
+                        Title = "Policy Cancelled",
+                        Message = $"Your policy {policy.PolicyNumber} has been cancelled. Reason: {request.Reason}",
+                        NotificationType = "PolicyStatusChanged"
+                    });
+                }
+
+                return Ok(new { message = "Policy cancelled successfully.", policy = result });
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to cancel policy {PolicyId}", policyId);
                 return HandleError(ex);
             }
         }

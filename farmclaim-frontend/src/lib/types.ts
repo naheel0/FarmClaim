@@ -12,7 +12,8 @@ export type PolicyStatus =
   | "Active"
   | "Expired"
   | "Rejected"
-  | "Cancelled";
+  | "Cancelled"
+  | "PaymentReceived";
 
 export type ClaimStatus =
   | "Pending"
@@ -224,12 +225,20 @@ export interface AuditLogDto {
   id: string;
   userId: string;
   userName: string;
+  userRole: string | null;
   action: string;
   resourceType: string;
   resourceId: string | null;
   details: string | null;
   ipAddress: string | null;
   timestamp: string;
+  oldValues: string | null;
+  newValues: string | null;
+  changedColumns: string | null;
+  userAgent: string | null;
+  correlationId: string | null;
+  httpMethod: string | null;
+  httpPath: string | null;
 }
 
 // ----- Request DTOs -----

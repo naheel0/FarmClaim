@@ -27,6 +27,7 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetAllPolicies
                 .Include(p => p.Farm).ThenInclude(f => f!.User)
                 .Include(p => p.ApprovedByUser)
                 .Include(p => p.Claims)
+                .Include(p => p.Payments)
                 .Where(p => !p.IsDeleted);
 
             if (!string.IsNullOrWhiteSpace(request.Status))
@@ -87,7 +88,9 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetAllPolicies
                     RejectedAt = p.RejectedAt,
                     RejectionReason = p.RejectionReason,
                     ClaimsCount = p.Claims.Count(c => !c.IsDeleted),
-                    CreatedAt = p.CreatedAt
+                    CreatedAt = p.CreatedAt,
+                    PaymentStatus = p.Payments.Any(p => p.Status == PaymentStatus.Captured && !p.IsDeleted)
+                        ? "Paid" : "Unpaid"
                 }).ToListAsync(ct);
 
             var totalPages = request.PageSize > 0 ? (int)Math.Ceiling((double)totalCount / request.PageSize) : 0;

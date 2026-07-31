@@ -481,6 +481,28 @@ export const paymentsApi = {
 };
 
 // ---- ADMIN ----
+function mapAuditLog(raw: any): AuditLogDto {
+  return {
+    id: raw.id,
+    userId: raw.userId ?? "",
+    userName: raw.userEmail ?? raw.userName ?? "",
+    userRole: raw.userRole ?? null,
+    action: raw.action ?? "",
+    resourceType: raw.entityType ?? raw.resourceType ?? "",
+    resourceId: raw.entityId ?? raw.resourceId ?? null,
+    details: raw.description ?? raw.details ?? null,
+    ipAddress: raw.ipAddress ?? null,
+    timestamp: raw.timestamp ?? "",
+    oldValues: raw.oldValues ?? null,
+    newValues: raw.newValues ?? null,
+    changedColumns: raw.changedColumns ?? null,
+    userAgent: raw.userAgent ?? null,
+    correlationId: raw.correlationId ?? null,
+    httpMethod: raw.httpMethod ?? null,
+    httpPath: raw.httpPath ?? null,
+  };
+}
+
 function mapDashboardStats(raw: any): AdminDashboardDto {
   return {
     totalUsers: (raw.totalFarmers ?? 0) + 1,
@@ -610,6 +632,11 @@ export const adminApi = {
       `/api/v1/Admin/Policies/${id}/reject`,
       { method: "PUT", body: JSON.stringify({ reason }) }
     ),
+  cancelPolicy: (id: string, reason: string) =>
+    request<void>(
+      `/api/v1/Admin/Policies/${id}/cancel`,
+      { method: "PUT", body: JSON.stringify({ reason }) }
+    ),
   listPolicies: (params?: { page?: number; pageSize?: number; status?: string; searchTerm?: string }) => {
     const query = new URLSearchParams();
     if (params?.page) query.set("pageNumber", String(params.page));
@@ -638,15 +665,15 @@ export const adminApi = {
       { method: "GET" }
     ),
   auditLogs: () =>
-    request<PagedResult<AuditLogDto>>(
+    request<PagedResult<any>>(
       "/api/v1/Admin/AuditLogs",
       { method: "GET" }
-    ).then((data) => extractItems<AuditLogDto>(data)),
+    ).then((data) => extractItems<any>(data).map(mapAuditLog)),
   getAuditLog: (id: string) =>
-    request<AuditLogDto>(
+    request<any>(
       `/api/v1/Admin/AuditLogs/${id}`,
       { method: "GET" }
-    ),
+    ).then(mapAuditLog),
 };
 
 // ---- WEATHER ----

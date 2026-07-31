@@ -47,6 +47,21 @@ namespace FarmClaim.Application.Features.Admin.Commands.ApproveClaim
                     $"Approved amount cannot exceed policy sum insured ({claim.Policy?.SumInsured})"
                 });
 
+            // Cumulative check: total approved claims must not exceed SumInsured
+            var totalApproved = await _context.Claims
+                .Where(c => c.PolicyId == claim.PolicyId
+                    && !c.IsDeleted
+                    && c.Id != claim.Id
+                    && (c.Status == ClaimStatus.Approved || c.Status == ClaimStatus.Paid))
+                .SumAsync(c => c.ApprovedAmount ?? 0, ct);
+
+            if (totalApproved + request.Request.ApprovedAmount > (claim.Policy?.SumInsured ?? 0))
+                throw new ValidationException(new List<string>
+                {
+                    $"Total approved claims (₹{totalApproved + request.Request.ApprovedAmount:N2}) would exceed policy sum insured (₹{claim.Policy?.SumInsured:N2}). " +
+                    $"Already approved: ₹{totalApproved:N2}"
+                });
+
             var oldStatus = claim.Status;
 
             claim.Status = ClaimStatus.Approved;

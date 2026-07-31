@@ -69,6 +69,10 @@ namespace FarmClaim.Domain.Entities
         // Cancellation tracking
         public DateTime? CancelledAt { get; set; }
 
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
         public virtual ICollection<Claim> Claims { get; set; } = new List<Claim>();
+        public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
     }
 }

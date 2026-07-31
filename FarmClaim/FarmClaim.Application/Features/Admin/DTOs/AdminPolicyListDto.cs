@@ -25,5 +25,6 @@ namespace FarmClaim.Application.Features.Admin.DTOs
         public string? RejectionReason { get; init; }
         public int ClaimsCount { get; init; }
         public DateTime CreatedAt { get; init; }
+        public string PaymentStatus { get; init; } = "Unpaid";
     }
 }

@@ -98,12 +98,11 @@ namespace FarmClaim.Application.Features.Payments.Commands.VerifyPayment
             payment.Status = PaymentStatus.Captured;
             payment.CapturedAt = DateTime.UtcNow;
 
-            // Auto-activate the policy after successful payment
+            // Transition policy from Pending to PaymentReceived (admin must approve to activate)
             if (payment.Policy != null && payment.Policy.Status == PolicyStatus.Pending)
             {
-                payment.Policy.Status = PolicyStatus.Active;
-                payment.Policy.ApprovedAt = DateTime.UtcNow;
-                _logger.LogInformation("Policy {PolicyId} auto-activated after payment {PaymentId}", payment.PolicyId, payment.Id);
+                payment.Policy.Status = PolicyStatus.PaymentReceived;
+                _logger.LogInformation("Policy {PolicyId} transitioned to PaymentReceived after payment {PaymentId}", payment.PolicyId, payment.Id);
             }
 
             if (details != null)

@@ -43,7 +43,7 @@ namespace FarmClaim.Infrastructure.Data.Configurations
             b.HasIndex(p => p.ReceiptNumber).IsUnique();
 
             b.HasOne(p => p.Policy)
-                .WithMany()
+                .WithMany(p => p.Payments)
                 .HasForeignKey(p => p.PolicyId)
                 .OnDelete(DeleteBehavior.Restrict);
 

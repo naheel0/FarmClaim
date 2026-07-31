@@ -11,13 +11,16 @@ namespace FarmClaim.Application.Features.Admin.Commands.ApprovePolicy
     public class ApprovePolicyCommandHandler : IRequestHandler<ApprovePolicyCommand, ApprovePolicyResponseDto>
     {
         private readonly IApplicationDbContext _context;
+        private readonly IAuditService _auditService;
         private readonly ILogger<ApprovePolicyCommandHandler> _logger;
 
         public ApprovePolicyCommandHandler(
             IApplicationDbContext context,
+            IAuditService auditService,
             ILogger<ApprovePolicyCommandHandler> logger)
         {
             _context = context;
+            _auditService = auditService;
             _logger = logger;
         }
 
@@ -33,15 +36,50 @@ namespace FarmClaim.Application.Features.Admin.Commands.ApprovePolicy
             if (policy == null)
                 throw new NotFoundException($"Policy '{request.PolicyId}' not found.");
 
-            if (policy.Status != PolicyStatus.Pending)
+            if (policy.Status != PolicyStatus.Pending && policy.Status != PolicyStatus.PaymentReceived)
                 throw new InvalidOperationException(
-                    $"Cannot approve. Policy status is '{policy.Status}'. Only 'Pending' policies can be approved.");
+                    $"Cannot approve. Policy status is '{policy.Status}'. Only 'Pending' or 'PaymentReceived' policies can be approved.");
+
+            // If policy is PaymentReceived, verify that a Captured payment exists
+            if (policy.Status == PolicyStatus.PaymentReceived)
+            {
+                var hasCapturedPayment = await _context.Payments
+                    .AnyAsync(p => p.PolicyId == policy.Id
+                        && p.Status == PaymentStatus.Captured
+                        && !p.IsDeleted, ct);
+
+                if (!hasCapturedPayment)
+                    throw new InvalidOperationException(
+                        "Cannot approve policy in PaymentReceived status without a confirmed payment. " +
+                        "The payment may have been reversed. Please check payment status.");
+            }
+
+            var oldStatus = policy.Status;
 
             policy.Status = PolicyStatus.Active;
             policy.ApprovedAt = DateTime.UtcNow;
             policy.ApprovedByUserId = request.AdminUserId;
+            policy.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync(ct);
+            try
+            {
+                await _context.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogWarning(ex, "Concurrency conflict approving policy {PolicyId}", request.PolicyId);
+                throw new InvalidOperationException(
+                    "This policy was modified by another operation. Please refresh and try again.");
+            }
+
+            await _auditService.LogActionAsync(
+                action: "policy.approved",
+                entityType: "InsurancePolicy",
+                entityId: request.PolicyId.ToString(),
+                description: $"Policy approved. Status: {oldStatus} -> Active",
+                oldValue: new { status = oldStatus.ToString() },
+                newValue: new { status = "Active", approvedBy = request.AdminUserId },
+                ct: ct);
 
             _logger.LogInformation("Policy {PolicyId} approved by Admin {AdminId}", request.PolicyId, request.AdminUserId);
 

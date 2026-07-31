@@ -16,6 +16,7 @@ const statusStyles: Record<string, string> = {
   Active: "bg-emerald-100 text-emerald-900 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200",
   Expired: "bg-stone-100 text-stone-700 border-stone-200 dark:bg-stone-700/30 dark:text-stone-300",
   Cancelled: "bg-stone-100 text-stone-700 border-stone-200 dark:bg-stone-700/30 dark:text-stone-300",
+  PaymentReceived: "bg-blue-100 text-blue-900 border-blue-200 dark:bg-blue-900/30 dark:text-blue-200",
   Created: "bg-stone-100 text-stone-700 border-stone-200",
   Attempted: "bg-amber-100 text-amber-900 border-amber-200",
   Captured: "bg-emerald-100 text-emerald-900 border-emerald-200",

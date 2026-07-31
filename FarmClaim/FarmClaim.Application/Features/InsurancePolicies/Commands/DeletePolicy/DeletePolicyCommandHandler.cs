@@ -45,6 +45,23 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.DeletePolicy
             if (hasActiveClaims)
                 throw new ValidationException(new List<string> { "Cannot delete policy with active claims. Please resolve all claims first." });
 
+            // Block deletion if payment was captured or is in progress
+            var hasCapturedPayment = await _context.Payments
+                .AnyAsync(p => p.PolicyId == command.PolicyId
+                    && p.Status == PaymentStatus.Captured
+                    && !p.IsDeleted, ct);
+
+            if (hasCapturedPayment)
+                throw new ValidationException(new List<string> { "Cannot delete policy with confirmed payment. Process a refund first." });
+
+            var hasPendingPayment = await _context.Payments
+                .AnyAsync(p => p.PolicyId == command.PolicyId
+                    && (p.Status == PaymentStatus.Created || p.Status == PaymentStatus.Attempted)
+                    && !p.IsDeleted, ct);
+
+            if (hasPendingPayment)
+                throw new ValidationException(new List<string> { "Cannot delete policy while payment is in progress. Wait for payment to complete or expire." });
+
             policy.IsDeleted = true;
             policy.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(ct);
