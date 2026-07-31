@@ -602,6 +602,15 @@ export const adminApi = {
       `/api/v1/Admin/Policies/${id}/reject`,
       { method: "PUT", body: JSON.stringify({ reason }) }
     ),
+  listPolicies: (params?: { page?: number; pageSize?: number; status?: string; searchTerm?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.page) query.set("pageNumber", String(params.page));
+    if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+    if (params?.status) query.set("status", params.status);
+    if (params?.searchTerm) query.set("searchTerm", params.searchTerm);
+    const qs = query.toString();
+    return request<PagedResult<any>>(`/api/v1/Admin/Policies${qs ? `?${qs}` : ""}`, { method: "GET" });
+  },
   listPlans: () =>
     request<PagedResult<InsurancePlanDto> | InsurancePlanDto[]>(
       "/api/v1/Admin/Plans",

@@ -1537,57 +1537,99 @@ function AdminAuditPage() {
 
 // ============== ADMIN POLICIES ==============
 function AdminPoliciesPage() {
-  const [policyId, setPolicyId] = useState("");
-  const [policy, setPolicy] = useState<PolicyResponseDto | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [policies, setPolicies] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"pending" | "active" | "rejected" | "all">("pending");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const [searchId, setSearchId] = useState("");
+  const [lookupPolicy, setLookupPolicy] = useState<any | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+
+  const [selectedPolicy, setSelectedPolicy] = useState<any | null>(null);
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const lookup = async () => {
-    if (!policyId.trim()) return;
+  const loadPolicies = async (p: number, statusFilter?: string) => {
     setLoading(true);
-    setPolicy(null);
     try {
-      const result = await policiesApi.get(policyId.trim());
-      setPolicy(result);
+      const params: any = { page: p, pageSize: 15 };
+      if (statusFilter && statusFilter !== "all") params.status = statusFilter;
+      const result = await adminApi.listPolicies(params);
+      setPolicies(result.items || []);
+      setTotalPages(result.totalPages || 1);
+      setTotalCount(result.totalCount || 0);
     } catch {
-      toast.error("Policy not found. Check the ID and try again.");
+      toast.error("Failed to load policies");
     } finally {
       setLoading(false);
     }
   };
 
-  const approve = async () => {
-    if (!policy) return;
+  useEffect(() => {
+    setPage(1);
+    loadPolicies(1, tab);
+  }, [tab]);
+
+  const lookup = async () => {
+    if (!searchId.trim()) return;
+    setLookupLoading(true);
+    setLookupPolicy(null);
+    try {
+      const result = await policiesApi.get(searchId.trim());
+      setLookupPolicy(result);
+    } catch {
+      toast.error("Policy not found. Check the ID and try again.");
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  const doApprove = async () => {
+    if (!selectedPolicy) return;
     setBusy(true);
     try {
-      await adminApi.approvePolicy(policy.id);
+      await adminApi.approvePolicy(selectedPolicy.id);
       toast.success("Policy approved");
-      setPolicy({ ...policy, status: "Active", approvedAt: new Date().toISOString() });
+      setPolicies((prev) => prev.filter((p) => p.id !== selectedPolicy.id));
+      setTotalCount((c) => c - 1);
       setApproveOpen(false);
+      setSelectedPolicy(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to approve policy");
+      toast.error(err instanceof Error ? err.message : "Failed to approve");
     } finally {
       setBusy(false);
     }
   };
 
-  const reject = async () => {
-    if (!policy) return;
+  const doReject = async () => {
+    if (!selectedPolicy) return;
     setBusy(true);
     try {
-      await adminApi.rejectPolicy(policy.id, rejectReason);
+      await adminApi.rejectPolicy(selectedPolicy.id, rejectReason);
       toast.success("Policy rejected");
-      setPolicy({ ...policy, status: "Rejected", rejectionReason: rejectReason });
+      setPolicies((prev) => prev.filter((p) => p.id !== selectedPolicy.id));
+      setTotalCount((c) => c - 1);
       setRejectOpen(false);
+      setSelectedPolicy(null);
+      setRejectReason("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to reject policy");
+      toast.error(err instanceof Error ? err.message : "Failed to reject");
     } finally {
       setBusy(false);
     }
   };
+
+  const tabs = [
+    { key: "pending" as const, label: "Pending", count: tab === "pending" ? totalCount : undefined },
+    { key: "active" as const, label: "Active" },
+    { key: "rejected" as const, label: "Rejected" },
+    { key: "all" as const, label: "All" },
+  ];
 
   return (
     <div>
@@ -1596,115 +1638,195 @@ function AdminPoliciesPage() {
         subtitle="Review, approve or reject crop insurance policies."
       />
 
-      <div className="flex gap-3 mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Enter policy ID to look up..."
-            value={policyId}
-            onChange={(e) => setPolicyId(e.target.value)}
-            className="pl-9 h-11"
-            onKeyDown={(e) => { if (e.key === "Enter") lookup(); }}
-          />
-        </div>
-        <Button onClick={lookup} disabled={loading || !policyId.trim()} className="h-11">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
-        </Button>
+      {/* Tab filter */}
+      <div className="flex items-center gap-2 mb-4">
+        {tabs.map((t) => (
+          <Button
+            key={t.key}
+            size="sm"
+            variant={tab === t.key ? "default" : "outline"}
+            onClick={() => setTab(t.key)}
+            className={tab === t.key ? "bg-emerald-700 hover:bg-emerald-800 text-white" : ""}
+          >
+            {t.label}
+            {t.count !== undefined && (
+              <Badge className="ml-1.5 bg-white/20 text-inherit" variant="secondary">{t.count}</Badge>
+            )}
+          </Button>
+        ))}
       </div>
 
-      {policy && (
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <h3 className="font-serif text-lg font-semibold">
-                  {policy.cropType} · {policy.provider}
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Policy #{policy.policyNumber} · Farm: {policy.farmName}
-                </p>
-              </div>
-              <StatusBadge status={policy.status} />
+      {/* Policies table */}
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-6 space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
             </div>
-
-            <div className="grid sm:grid-cols-3 gap-4 text-sm mb-6">
-              <div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">Coverage</div>
-                <div className="font-semibold mt-1">{formatINR(policy.coverageAmount)}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">Premium</div>
-                <div className="font-semibold mt-1">{formatINR(policy.premium)}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">Sum insured</div>
-                <div className="font-semibold mt-1 text-emerald-700">{formatINR(policy.sumInsured)}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">Start date</div>
-                <div className="font-medium mt-1">{formatDate(policy.startDate)}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">End date</div>
-                <div className="font-medium mt-1">{formatDate(policy.endDate)}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">Claims</div>
-                <div className="font-medium mt-1">{policy.claimsCount}</div>
-              </div>
+          ) : policies.length === 0 ? (
+            <div className="p-12 text-center text-muted-foreground">
+              No {tab === "all" ? "" : tab} policies found.
             </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="text-left p-3 font-medium">Farmer</th>
+                    <th className="text-left p-3 font-medium">Policy #</th>
+                    <th className="text-left p-3 font-medium">Crop</th>
+                    <th className="text-left p-3 font-medium">Premium</th>
+                    <th className="text-left p-3 font-medium">Sum Insured</th>
+                    <th className="text-left p-3 font-medium">Start</th>
+                    <th className="text-left p-3 font-medium">Status</th>
+                    {tab === "pending" && <th className="text-right p-3 font-medium">Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {policies.map((p) => (
+                    <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30">
+                      <td className="p-3">
+                        <div className="font-medium">{p.farmerName}</div>
+                        <div className="text-xs text-muted-foreground">{p.farmerEmail}</div>
+                      </td>
+                      <td className="p-3 font-mono text-xs">{p.policyNumber}</td>
+                      <td className="p-3">{p.cropType}</td>
+                      <td className="p-3">{formatINR(p.premium)}</td>
+                      <td className="p-3 text-emerald-700 font-medium">{formatINR(p.sumInsured)}</td>
+                      <td className="p-3 text-xs">{formatDate(p.startDate)}</td>
+                      <td className="p-3"><StatusBadge status={p.status} /></td>
+                      {tab === "pending" && (
+                        <td className="p-3 text-right">
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              size="sm"
+                              className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1 h-8"
+                              onClick={() => { setSelectedPolicy(p); setApproveOpen(true); }}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-rose-600 hover:bg-rose-50 border-rose-200 gap-1 h-8"
+                              onClick={() => { setSelectedPolicy(p); setRejectOpen(true); }}
+                            >
+                              <XCircle className="h-3.5 w-3.5" /> Reject
+                            </Button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-            {policy.rejectionReason && (
-              <div className="p-3 rounded-lg bg-rose-50 text-rose-900 text-sm border border-rose-200 mb-6">
-                <span className="font-semibold">Rejection reason: </span>
-                {policy.rejectionReason}
-              </div>
-            )}
-
-            {policy.status === "Pending" && (
-              <div className="flex gap-2 pt-4 border-t">
-                <Button
-                  onClick={() => setApproveOpen(true)}
-                  className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5"
-                >
-                  <CheckCircle2 className="h-4 w-4" /> Approve policy
-                </Button>
-                <Button
-                  onClick={() => setRejectOpen(true)}
-                  variant="outline"
-                  className="text-rose-600 hover:bg-rose-50 border-rose-200 gap-1.5"
-                >
-                  <XCircle className="h-4 w-4" /> Reject policy
-                </Button>
-              </div>
-            )}
-
-            {policy.status === "Active" && policy.approvedByName && (
-              <div className="pt-4 border-t text-sm text-muted-foreground">
-                Approved by {policy.approvedByName} on {formatDate(policy.approvedAt)}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center mt-4">
+          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => { setPage(page - 1); loadPolicies(page - 1, tab); }}>Previous</Button>
+            <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => { setPage(page + 1); loadPolicies(page + 1, tab); }}>Next</Button>
+          </div>
+        </div>
       )}
 
+      {/* Manual lookup section */}
+      <div className="mt-8">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Look up by Policy ID</h3>
+        <div className="flex gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Enter policy ID..."
+              value={searchId}
+              onChange={(e) => setSearchId(e.target.value)}
+              className="pl-9 h-11"
+              onKeyDown={(e) => { if (e.key === "Enter") lookup(); }}
+            />
+          </div>
+          <Button onClick={lookup} disabled={lookupLoading || !searchId.trim()} className="h-11">
+            {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+          </Button>
+        </div>
+
+        {lookupPolicy && (
+          <Card className="mt-4">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h4 className="font-serif text-lg font-semibold">{lookupPolicy.cropType} · {lookupPolicy.provider}</h4>
+                  <p className="text-sm text-muted-foreground">Policy #{lookupPolicy.policyNumber} · Farm: {lookupPolicy.farmName}</p>
+                </div>
+                <StatusBadge status={lookupPolicy.status} />
+              </div>
+              <div className="grid sm:grid-cols-3 gap-4 text-sm mb-4">
+                <div>
+                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Coverage</div>
+                  <div className="font-semibold mt-1">{formatINR(lookupPolicy.coverageAmount)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Premium</div>
+                  <div className="font-semibold mt-1">{formatINR(lookupPolicy.premium)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Sum insured</div>
+                  <div className="font-semibold mt-1 text-emerald-700">{formatINR(lookupPolicy.sumInsured)}</div>
+                </div>
+              </div>
+              {lookupPolicy.status === "Pending" && (
+                <div className="flex gap-2 pt-4 border-t">
+                  <Button
+                    onClick={() => { setSelectedPolicy(lookupPolicy); setApproveOpen(true); }}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5"
+                  >
+                    <CheckCircle2 className="h-4 w-4" /> Approve policy
+                  </Button>
+                  <Button
+                    onClick={() => { setSelectedPolicy(lookupPolicy); setRejectOpen(true); }}
+                    variant="outline"
+                    className="text-rose-600 hover:bg-rose-50 border-rose-200 gap-1.5"
+                  >
+                    <XCircle className="h-4 w-4" /> Reject policy
+                  </Button>
+                </div>
+              )}
+              {lookupPolicy.status === "Active" && lookupPolicy.approvedByName && (
+                <div className="pt-4 border-t text-sm text-muted-foreground">
+                  Approved by {lookupPolicy.approvedByName} on {formatDate(lookupPolicy.approvedAt)}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Approve dialog */}
       <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Approve policy</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This will activate policy <strong>#{policy?.policyNumber}</strong> for {policy?.farmName}.
+            This will activate policy <strong>#{selectedPolicy?.policyNumber}</strong> for {selectedPolicy?.farmName}.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setApproveOpen(false)}>Cancel</Button>
-            <Button onClick={approve} disabled={busy} className="bg-emerald-700 hover:bg-emerald-800 text-white">
+            <Button onClick={doApprove} disabled={busy} className="bg-emerald-700 hover:bg-emerald-800 text-white">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm approve"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Reject dialog */}
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1722,7 +1844,7 @@ function AdminPoliciesPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
-            <Button onClick={reject} disabled={busy || !rejectReason} className="bg-rose-600 hover:bg-rose-700 text-white">
+            <Button onClick={doReject} disabled={busy || !rejectReason} className="bg-rose-600 hover:bg-rose-700 text-white">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm reject"}
             </Button>
           </DialogFooter>

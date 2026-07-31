@@ -3,6 +3,7 @@ using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Admin.Commands.ApprovePolicy;
 using FarmClaim.Application.Features.Admin.Commands.RejectPolicy;
 using FarmClaim.Application.Features.Admin.DTOs;
+using FarmClaim.Application.Features.Admin.Queries.GetAllPolicies;
 using FarmClaim.Application.Features.Notifications.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -29,6 +30,31 @@ namespace FarmClaim.API.Controllers
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        // GET /api/v1/Admin/Policies
+        [HttpGet]
+        public async Task<IActionResult> GetAllPolicies(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? status = null,
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] string? sortBy = "CreatedAt",
+            [FromQuery] string? sortOrder = "desc")
+        {
+            try
+            {
+                pageSize = Math.Clamp(pageSize, 1, 100);
+                pageNumber = Math.Max(1, pageNumber);
+                var query = new GetAllPoliciesQuery(pageNumber, pageSize, status, searchTerm, sortBy, sortOrder);
+                var result = await _mediator.Send(query);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to list policies for admin");
+                return StatusCode(500, new { error = "Failed to load policies" });
+            }
         }
 
         // PUT /api/v1/Admin/Policies/{policyId}/approve
