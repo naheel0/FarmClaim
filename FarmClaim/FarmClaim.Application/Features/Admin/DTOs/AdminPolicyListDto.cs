@@ -26,5 +26,10 @@ namespace FarmClaim.Application.Features.Admin.DTOs
         public int ClaimsCount { get; init; }
         public DateTime CreatedAt { get; init; }
         public string PaymentStatus { get; init; } = "Unpaid";
+
+        // Installment tracking
+        public int? CurrentInstallmentNumber { get; init; }
+        public DateTime? NextInstallmentDueDate { get; init; }
+        public decimal? InstallmentAmount { get; init; }
     }
 }

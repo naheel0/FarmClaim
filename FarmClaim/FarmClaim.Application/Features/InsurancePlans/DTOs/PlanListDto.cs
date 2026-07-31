@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using FarmClaim.Domain.Enums;
 
 namespace FarmClaim.Application.Features.InsurancePlans.Queries.GetAllPlans
 {
@@ -19,5 +20,10 @@ namespace FarmClaim.Application.Features.InsurancePlans.Queries.GetAllPlans
         public bool IsActive { get; set; }
         public int PoliciesCount { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
+
+        // Installment support
+        public bool SupportsInstallments { get; set; }
+        public int? InstallmentCount { get; set; }
+        public FarmClaim.Domain.Enums.InstallmentFrequency? InstallmentFrequency { get; set; }
     }
 }

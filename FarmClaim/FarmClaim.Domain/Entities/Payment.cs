@@ -77,5 +77,11 @@ namespace FarmClaim.Domain.Entities
 
         [MaxLength(500)]
         public string? Notes { get; set; }
+
+        // Installment link
+        public Guid? PremiumScheduleId { get; set; }
+
+        [ForeignKey(nameof(PremiumScheduleId))]
+        public virtual PremiumSchedule? PremiumSchedule { get; set; }
     }
 }

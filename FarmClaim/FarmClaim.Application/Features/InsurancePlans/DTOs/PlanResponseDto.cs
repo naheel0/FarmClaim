@@ -1,4 +1,5 @@
 ﻿using System;
+using FarmClaim.Domain.Enums;
 
 namespace FarmClaim.Application.Features.InsurancePlans.DTOs
 {
@@ -19,5 +20,10 @@ namespace FarmClaim.Application.Features.InsurancePlans.DTOs
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
         public int PoliciesCount { get; init; }
+
+        // Installment support
+        public bool SupportsInstallments { get; init; }
+        public int? InstallmentCount { get; init; }
+        public InstallmentFrequency? InstallmentFrequency { get; init; }
     }
 }

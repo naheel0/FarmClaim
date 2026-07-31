@@ -22,5 +22,10 @@ namespace FarmClaim.Application.Features.InsurancePolicies.DTOs
 
         public string? FarmName { get; init; }
         public int ClaimsCount { get; init; }
+
+        // Installment tracking
+        public int? CurrentInstallmentNumber { get; init; }
+        public DateTime? NextInstallmentDueDate { get; init; }
+        public decimal? InstallmentAmount { get; init; }
     }
 }

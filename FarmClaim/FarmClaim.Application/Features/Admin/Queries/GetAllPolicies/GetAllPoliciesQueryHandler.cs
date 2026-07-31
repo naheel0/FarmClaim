@@ -90,7 +90,10 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetAllPolicies
                     ClaimsCount = p.Claims.Count(c => !c.IsDeleted),
                     CreatedAt = p.CreatedAt,
                     PaymentStatus = p.Payments.Any(p => p.Status == PaymentStatus.Captured && !p.IsDeleted)
-                        ? "Paid" : "Unpaid"
+                        ? "Paid" : "Unpaid",
+                    CurrentInstallmentNumber = p.CurrentInstallmentNumber,
+                    NextInstallmentDueDate = p.NextInstallmentDueDate,
+                    InstallmentAmount = p.InstallmentAmount
                 }).ToListAsync(ct);
 
             var totalPages = request.PageSize > 0 ? (int)Math.Ceiling((double)totalCount / request.PageSize) : 0;

@@ -64,7 +64,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.CreateOrder
                 )
                 .FirstOrDefaultAsync(ct);
 
-            if (existingPayment != null)
+            if (existingPayment != null && cmd.Request.PremiumScheduleId == null)
                 throw new ValidationException(
                     new List<string>
                     {
@@ -72,12 +72,38 @@ namespace FarmClaim.Application.Features.Payments.Commands.CreateOrder
                     }
                 );
 
-            // Always charge the policy premium — no custom amounts allowed
-            var amount = policy.Premium;
-            if (amount <= 0)
-                throw new ValidationException(
-                    new List<string> { "Policy premium must be greater than 0." }
-                );
+            decimal amount;
+            Guid? premiumScheduleId = null;
+
+            if (cmd.Request.PremiumScheduleId.HasValue)
+            {
+                var schedule = await _context.PremiumSchedules
+                    .FirstOrDefaultAsync(s =>
+                        s.Id == cmd.Request.PremiumScheduleId.Value
+                        && s.PolicyId == policy.Id
+                        && s.Status == PremiumScheduleStatus.Pending
+                        && !s.IsDeleted, ct);
+
+                if (schedule == null)
+                    throw new NotFoundException(nameof(PremiumSchedule), cmd.Request.PremiumScheduleId.Value);
+
+                amount = schedule.AmountDue;
+                premiumScheduleId = schedule.Id;
+
+                if (amount <= 0)
+                    throw new ValidationException(
+                        new List<string> { "Installment amount must be greater than 0." }
+                    );
+            }
+            else
+            {
+                // Full premium payment — legacy path
+                amount = policy.Premium;
+                if (amount <= 0)
+                    throw new ValidationException(
+                        new List<string> { "Policy premium must be greater than 0." }
+                    );
+            }
 
             // FIXED: Use .ToString() instead of :ToString
             var receiptNumber =
@@ -104,6 +130,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.CreateOrder
                 ReceiptNumber = receiptNumber,
                 ClientIp = cmd.ClientIp,
                 UserAgent = cmd.UserAgent,
+                PremiumScheduleId = premiumScheduleId,
             };
 
             await _context.Payments.AddAsync(payment, ct);

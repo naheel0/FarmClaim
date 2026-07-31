@@ -69,6 +69,9 @@ namespace FarmClaim.Application.Features.InsurancePlans.Queries.GetAllPlans
                 PolicyDurationMonths = p.PolicyDurationMonths,
                 IsActive = p.IsActive,
                 PoliciesCount = p.Policies.Count(pl => !pl.IsDeleted),
+                SupportsInstallments = p.SupportsInstallments,
+                InstallmentCount = p.InstallmentCount,
+                InstallmentFrequency = p.InstallmentFrequency,
                 CreatedAt = p.CreatedAt
             }).ToList();
 

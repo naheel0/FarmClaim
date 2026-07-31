@@ -16,6 +16,7 @@ namespace FarmClaim.Application.Common.Interfaces
         DbSet<EmailChangeToken> EmailChangeTokens { get; set; }
         DbSet<EmailVerificationCode> EmailVerificationCodes { get; set; }
         DbSet<Payment> Payments { get; set; }
+        DbSet<PremiumSchedule> PremiumSchedules { get; set; }
         DbSet<WebhookEvent> WebhookEvents { get; set; }
         DbSet<AuditLog> AuditLogs { get; set; }
 

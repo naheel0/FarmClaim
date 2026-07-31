@@ -34,6 +34,12 @@ namespace FarmClaim.Application.Features.InsurancePolicies.DTOs
         // NEW: Cancellation tracking
         public DateTime? CancelledAt { get; init; }
 
+        // Installment tracking
+        public int? CurrentInstallmentNumber { get; init; }
+        public DateTime? NextInstallmentDueDate { get; init; }
+        public decimal? InstallmentAmount { get; init; }
+        public List<PremiumScheduleDto>? PremiumSchedules { get; init; }
+
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
         public int ClaimsCount { get; init; }

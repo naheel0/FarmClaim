@@ -6,5 +6,7 @@ namespace FarmClaim.Application.Features.Payments.DTOs
     {
         [Range(1, double.MaxValue)]
         public decimal? CustomAmount { get; set; }
+
+        public Guid? PremiumScheduleId { get; set; }
     }
 }

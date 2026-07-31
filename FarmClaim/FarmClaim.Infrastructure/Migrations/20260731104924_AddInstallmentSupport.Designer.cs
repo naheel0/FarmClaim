@@ -4,6 +4,7 @@ using FarmClaim.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FarmClaim.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260731104924_AddInstallmentSupport")]
+    partial class AddInstallmentSupport
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -692,9 +695,6 @@ namespace FarmClaim.Infrastructure.Migrations
                     b.Property<Guid>("PolicyId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("PremiumScheduleId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("ReceiptNumber")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -734,8 +734,6 @@ namespace FarmClaim.Infrastructure.Migrations
                     b.HasIndex("PaymentId");
 
                     b.HasIndex("PolicyId");
-
-                    b.HasIndex("PremiumScheduleId");
 
                     b.HasIndex("ReceiptNumber")
                         .IsUnique()
@@ -1091,10 +1089,6 @@ namespace FarmClaim.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("FarmClaim.Domain.Entities.PremiumSchedule", "PremiumSchedule")
-                        .WithMany()
-                        .HasForeignKey("PremiumScheduleId");
-
                     b.HasOne("FarmClaim.Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -1102,8 +1096,6 @@ namespace FarmClaim.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Policy");
-
-                    b.Navigation("PremiumSchedule");
 
                     b.Navigation("User");
                 });

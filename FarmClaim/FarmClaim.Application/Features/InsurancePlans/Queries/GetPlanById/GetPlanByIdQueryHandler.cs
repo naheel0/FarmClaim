@@ -47,7 +47,10 @@ namespace FarmClaim.Application.Features.InsurancePlans.Queries.GetPlanById
                 IsActive = plan.IsActive,
                 CreatedAt = plan.CreatedAt,
                 UpdatedAt = plan.UpdatedAt,
-                PoliciesCount = plan.Policies.Count(p => !p.IsDeleted)
+                PoliciesCount = plan.Policies.Count(p => !p.IsDeleted),
+                SupportsInstallments = plan.SupportsInstallments,
+                InstallmentCount = plan.InstallmentCount,
+                InstallmentFrequency = plan.InstallmentFrequency
             };
         }
     }

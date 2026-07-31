@@ -30,6 +30,7 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Queries.GetPolicyById
                 .AsNoTracking()
                 .Include(p => p.Farm)
                 .Include(p => p.Claims)
+                .Include(p => p.PremiumSchedules)
                 .FirstOrDefaultAsync(p => p.Id == request.PolicyId
                     && p.Farm!.UserId == request.UserId // FIXED: Ownership check added
                     && !p.IsDeleted, ct);
@@ -62,6 +63,23 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Queries.GetPolicyById
                 RejectedAt = policy.RejectedAt,
                 RejectionReason = policy.RejectionReason,
                 CancelledAt = policy.CancelledAt,
+                CurrentInstallmentNumber = policy.CurrentInstallmentNumber,
+                NextInstallmentDueDate = policy.NextInstallmentDueDate,
+                InstallmentAmount = policy.InstallmentAmount,
+                PremiumSchedules = policy.PremiumSchedules
+                    .Where(s => !s.IsDeleted)
+                    .OrderBy(s => s.InstallmentNumber)
+                    .Select(s => new PremiumScheduleDto
+                    {
+                        Id = s.Id,
+                        PolicyId = s.PolicyId,
+                        InstallmentNumber = s.InstallmentNumber,
+                        DueDate = s.DueDate,
+                        AmountDue = s.AmountDue,
+                        PaymentId = s.PaymentId,
+                        Status = s.Status,
+                        PaidAt = s.PaidAt
+                    }).ToList(),
                 CreatedAt = policy.CreatedAt,
                 UpdatedAt = policy.UpdatedAt,
                 ClaimsCount = policy.Claims.Count(c => !c.IsDeleted)

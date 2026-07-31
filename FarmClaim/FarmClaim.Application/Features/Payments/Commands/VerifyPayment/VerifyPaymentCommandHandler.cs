@@ -39,6 +39,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.VerifyPayment
 
             var payment = await _context.Payments
                 .Include(p => p.Policy).ThenInclude(p => p!.Farm).ThenInclude(f => f!.User)
+                .Include(p => p.Policy).ThenInclude(p => p!.PremiumSchedules)
                 .FirstOrDefaultAsync(p => p.OrderId == cmd.Request.RazorpayOrderId && !p.IsDeleted, ct);
 
             if (payment == null)
@@ -98,8 +99,46 @@ namespace FarmClaim.Application.Features.Payments.Commands.VerifyPayment
             payment.Status = PaymentStatus.Captured;
             payment.CapturedAt = DateTime.UtcNow;
 
-            // Transition policy from Pending to PaymentReceived (admin must approve to activate)
-            if (payment.Policy != null && payment.Policy.Status == PolicyStatus.Pending)
+            // Handle installment payments
+            if (payment.PremiumScheduleId.HasValue)
+            {
+                var schedule = await _context.PremiumSchedules
+                    .FirstOrDefaultAsync(s => s.Id == payment.PremiumScheduleId.Value && !s.IsDeleted, ct);
+
+                if (schedule != null)
+                {
+                    schedule.Status = PremiumScheduleStatus.Paid;
+                    schedule.PaidAt = DateTime.UtcNow;
+                    schedule.PaymentId = payment.Id;
+
+                    if (schedule.Policy != null)
+                    {
+                        var policy = schedule.Policy;
+                        var totalInstallments = policy.PremiumSchedules.Count(s => !s.IsDeleted);
+                        var paidCount = policy.PremiumSchedules.Count(s => !s.IsDeleted && s.Status == PremiumScheduleStatus.Paid);
+
+                        policy.CurrentInstallmentNumber = paidCount;
+                        policy.InstallmentAmount = schedule.AmountDue;
+
+                        var nextSchedule = policy.PremiumSchedules
+                            .Where(s => !s.IsDeleted && s.Status == PremiumScheduleStatus.Pending)
+                            .OrderBy(s => s.InstallmentNumber)
+                            .FirstOrDefault();
+
+                        policy.NextInstallmentDueDate = nextSchedule?.DueDate;
+
+                        if (paidCount >= totalInstallments && totalInstallments > 0)
+                        {
+                            _logger.LogInformation(
+                                "All installments paid for policy {PolicyId}. Transitioning to PaymentReceived.",
+                                policy.Id);
+                            policy.Status = PolicyStatus.PaymentReceived;
+                        }
+                    }
+                }
+            }
+            // Transition policy from Pending to PaymentReceived (single full payment)
+            else if (payment.Policy != null && payment.Policy.Status == PolicyStatus.Pending)
             {
                 payment.Policy.Status = PolicyStatus.PaymentReceived;
                 _logger.LogInformation("Policy {PolicyId} transitioned to PaymentReceived after payment {PaymentId}", payment.PolicyId, payment.Id);

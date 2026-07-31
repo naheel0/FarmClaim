@@ -48,7 +48,10 @@ namespace FarmClaim.Application.Features.InsurancePlans.Commands.CreatePlan
                 MinAreaInHectares = command.Request.MinAreaInHectares,
                 MaxAreaInHectares = command.Request.MaxAreaInHectares,
                 PolicyDurationMonths = command.Request.PolicyDurationMonths,
-                IsActive = command.Request.IsActive
+                IsActive = command.Request.IsActive,
+                SupportsInstallments = command.Request.SupportsInstallments,
+                InstallmentCount = command.Request.InstallmentCount,
+                InstallmentFrequency = command.Request.InstallmentFrequency
             };
 
             await _context.InsurancePlans.AddAsync(plan, ct);
@@ -73,7 +76,10 @@ namespace FarmClaim.Application.Features.InsurancePlans.Commands.CreatePlan
                 IsActive = plan.IsActive,
                 CreatedAt = plan.CreatedAt,
                 UpdatedAt = plan.UpdatedAt,
-                PoliciesCount = 0
+                PoliciesCount = 0,
+                SupportsInstallments = plan.SupportsInstallments,
+                InstallmentCount = plan.InstallmentCount,
+                InstallmentFrequency = plan.InstallmentFrequency
             };
         }
     }

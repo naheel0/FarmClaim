@@ -20,6 +20,7 @@ namespace FarmClaim.Infrastructure.Data
         public DbSet<EmailVerificationCode> EmailVerificationCodes { get; set; } = null!;
         public DbSet<EmailChangeToken> EmailChangeTokens { get; set; } = null!;
         public DbSet<Payment> Payments { get; set; } = null!;
+        public DbSet<PremiumSchedule> PremiumSchedules { get; set; } = null!;
         public DbSet<WebhookEvent> WebhookEvents { get; set; } = null!;
         public DbSet<AuditLog> AuditLogs { get; set; } = null!;
 
@@ -39,6 +40,7 @@ namespace FarmClaim.Infrastructure.Data
             modelBuilder.Entity<InsurancePolicy>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<FarmClaim.Domain.Entities.Claim>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<ClaimImage>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<PremiumSchedule>().HasQueryFilter(e => !e.IsDeleted);
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken ct = default)

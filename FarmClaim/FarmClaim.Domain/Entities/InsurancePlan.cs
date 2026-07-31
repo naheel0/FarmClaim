@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using FarmClaim.Domain.Enums;
 
 namespace FarmClaim.Domain.Entities
 {
@@ -53,6 +54,11 @@ namespace FarmClaim.Domain.Entities
 
         [Required]
         public bool IsActive { get; set; } = true;
+
+        // Installment fields
+        public bool SupportsInstallments { get; set; } = false;
+        public InstallmentFrequency? InstallmentFrequency { get; set; }
+        public int? InstallmentCount { get; set; }
 
         public virtual ICollection<InsurancePolicy> Policies { get; set; } = new List<InsurancePolicy>();
     }

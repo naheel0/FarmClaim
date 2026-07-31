@@ -116,6 +116,43 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.CreatePolicy
                 EndDate = endDate
             };
 
+            if (plan.SupportsInstallments && plan.InstallmentCount.HasValue && plan.InstallmentCount.Value > 1)
+            {
+                var count = plan.InstallmentCount.Value;
+                var baseInstallmentAmount = Math.Round(premium / count, 2);
+
+                policy.InstallmentAmount = baseInstallmentAmount;
+                policy.CurrentInstallmentNumber = 1;
+
+                var schedules = new List<PremiumSchedule>();
+                for (int i = 1; i <= count; i++)
+                {
+                    decimal amount = (i == count)
+                        ? premium - (baseInstallmentAmount * (count - 1))
+                        : baseInstallmentAmount;
+
+                    DateTime dueDate = plan.InstallmentFrequency switch
+                    {
+                        InstallmentFrequency.Monthly => startDate.AddMonths(i - 1),
+                        InstallmentFrequency.Quarterly => startDate.AddMonths((i - 1) * 3),
+                        InstallmentFrequency.Annually => startDate.AddYears(i - 1),
+                        _ => startDate.AddMonths(i - 1)
+                    };
+
+                    schedules.Add(new PremiumSchedule
+                    {
+                        PolicyId = policy.Id,
+                        InstallmentNumber = i,
+                        DueDate = dueDate,
+                        AmountDue = amount,
+                        Status = PremiumScheduleStatus.Pending
+                    });
+                }
+
+                policy.NextInstallmentDueDate = schedules[0].DueDate;
+                policy.PremiumSchedules = schedules;
+            }
+
             await _context.InsurancePolicies.AddAsync(policy, ct);
             await _context.SaveChangesAsync(ct);
 
@@ -140,6 +177,20 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.CreatePolicy
                 StartDate = policy.StartDate,
                 EndDate = policy.EndDate,
                 Status = policy.Status,
+                CurrentInstallmentNumber = policy.CurrentInstallmentNumber,
+                NextInstallmentDueDate = policy.NextInstallmentDueDate,
+                InstallmentAmount = policy.InstallmentAmount,
+                PremiumSchedules = policy.PremiumSchedules?.Select(s => new PremiumScheduleDto
+                {
+                    Id = s.Id,
+                    PolicyId = s.PolicyId,
+                    InstallmentNumber = s.InstallmentNumber,
+                    DueDate = s.DueDate,
+                    AmountDue = s.AmountDue,
+                    PaymentId = s.PaymentId,
+                    Status = s.Status,
+                    PaidAt = s.PaidAt
+                }).ToList(),
                 CreatedAt = policy.CreatedAt,
                 UpdatedAt = policy.UpdatedAt,
                 ClaimsCount = 0

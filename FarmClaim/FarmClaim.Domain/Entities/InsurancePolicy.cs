@@ -69,10 +69,17 @@ namespace FarmClaim.Domain.Entities
         // Cancellation tracking
         public DateTime? CancelledAt { get; set; }
 
+        // Installment tracking
+        public int? CurrentInstallmentNumber { get; set; } = 1;
+        public DateTime? NextInstallmentDueDate { get; set; }
+        [Column(TypeName = "decimal(18, 2)")]
+        public decimal? InstallmentAmount { get; set; }
+
         [Timestamp]
         public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
         public virtual ICollection<Claim> Claims { get; set; } = new List<Claim>();
         public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
+        public virtual ICollection<PremiumSchedule> PremiumSchedules { get; set; } = new List<PremiumSchedule>();
     }
 }
