@@ -434,6 +434,7 @@ export const paymentsApi = {
         theme: { color: "#047857" },
         handler: () => {},
         modal: { escape: false, backdropclose: false },
+        redirect: false,
       };
 
       return await new Promise<RazorpayCheckoutResult>((resolve) => {

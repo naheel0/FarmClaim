@@ -30,7 +30,6 @@ namespace FarmClaim.Application.Features.Farmers.Queries.GetAllFarmers
             IQueryable<User> queryable = _context.Users
                 .AsNoTracking()
                 .Include(u => u.Farms)
-                .Include(u => u.Policies)
                 .Where(u => !u.IsDeleted);
 
             if (!string.IsNullOrWhiteSpace(request.SearchTerm))
@@ -63,7 +62,7 @@ namespace FarmClaim.Application.Features.Farmers.Queries.GetAllFarmers
                 CreatedAt = u.CreatedAt,
                 LastLoginAt = u.LastLoginAt,
                 FarmsCount = u.Farms.Count(f => !f.IsDeleted),
-                PoliciesCount = u.Policies.Count(p => !p.IsDeleted && p.Status == PolicyStatus.Active)
+                PoliciesCount = u.Farms.SelectMany(f => f.InsurancePolicies).Count(p => !p.IsDeleted && p.Status == PolicyStatus.Active)
             }).ToList();
 
             var totalPages = request.PageSize > 0

@@ -22,7 +22,6 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetUserById
                 .AsNoTracking()
                 .Include(u => u.StatusChangedBy)
                 .Include(u => u.Farms)
-                .Include(u => u.Policies)
                 .Include(u => u.Claims)
                 .FirstOrDefaultAsync(u => u.Id == request.UserId, ct);
 
@@ -48,7 +47,7 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetUserById
                 CreatedAt = user.CreatedAt,
                 UpdatedAt = user.UpdatedAt,
                 FarmsCount = user.Farms.Count(f => !f.IsDeleted),
-                PoliciesCount = user.Policies.Count(p => !p.IsDeleted),
+                PoliciesCount = user.Farms.SelectMany(f => f.InsurancePolicies).Count(p => !p.IsDeleted),
                 ClaimsCount = user.Claims.Count(c => !c.IsDeleted)
             };
         }

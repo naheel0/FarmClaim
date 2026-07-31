@@ -59,8 +59,6 @@ namespace FarmClaim.Domain.Entities
 
         public virtual ICollection<Farm> Farms { get; set; } = new List<Farm>();
 
-        public virtual ICollection<InsurancePolicy> Policies { get; set; } = new List<InsurancePolicy>();
-
         public virtual ICollection<FarmClaim.Domain.Entities.Claim> Claims { get; set; } = new List<FarmClaim.Domain.Entities.Claim>();
 
         // Admin review tracking
