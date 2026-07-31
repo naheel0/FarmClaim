@@ -168,6 +168,7 @@ export function PoliciesPage() {
 
 function PolicyDetail({ id }: { id: string }) {
   const navigate = useApp((s) => s.navigate);
+  const user = useApp((s) => s.user);
   const [policy, setPolicy] = useState<PolicyResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -175,6 +176,9 @@ function PolicyDetail({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [payments, setPayments] = useState<any[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+  type PayStep = "idle" | "creating" | "checkout" | "verifying" | "done";
+  const [payStep, setPayStep] = useState<PayStep>("idle");
 
   useEffect(() => {
     policiesApi
@@ -206,6 +210,42 @@ function PolicyDetail({ id }: { id: string }) {
 
   const canEdit = policy.status === "Pending";
   const canDelete = policy.status === "Pending" || policy.status === "PaymentReceived";
+
+  const stepLabel: Record<PayStep, string> = {
+    idle: "Pay now",
+    creating: "Creating…",
+    checkout: "Opening payment…",
+    verifying: "Verifying…",
+    done: "Done",
+  };
+
+  const handlePay = async () => {
+    setPayStep("checkout");
+    setPaying(true);
+    try {
+      const result = await paymentsApi.checkout(policy.id, {
+        name: user ? `${user.firstName} ${user.lastName}` : undefined,
+        email: user?.email ?? undefined,
+        phone: user?.phoneNumber ?? undefined,
+      });
+      if (!result.ok) {
+        toast.error(result.error ? `Payment failed: ${result.error}` : "Payment failed");
+        return;
+      }
+      toast.success("Payment successful! Awaiting admin approval.");
+      const [updated, updatedPayments] = await Promise.all([
+        policiesApi.get(id),
+        paymentsApi.getByPolicy(id),
+      ]);
+      setPolicy(updated);
+      setPayments(updatedPayments);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Payment failed");
+    } finally {
+      setPaying(false);
+      setPayStep("idle");
+    }
+  };
 
   return (
     <div>
@@ -278,6 +318,19 @@ function PolicyDetail({ id }: { id: string }) {
           <CardContent className="p-6">
             <h3 className="font-serif text-lg font-semibold mb-4">Quick actions</h3>
             <div className="space-y-2">
+              {policy.status === "Pending" && (
+                <Button
+                  className="w-full justify-start gap-2 bg-emerald-700 hover:bg-emerald-800 text-white"
+                  onClick={handlePay}
+                  disabled={paying}
+                >
+                  {paying ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> {stepLabel[payStep]}</>
+                  ) : (
+                    <><CreditCard className="h-4 w-4" /> Pay {formatINR(policy.premium)}</>
+                  )}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="w-full justify-start gap-2"
