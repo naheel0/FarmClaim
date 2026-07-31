@@ -36,23 +36,20 @@ namespace FarmClaim.Application.Features.Admin.Commands.ApprovePolicy
             if (policy == null)
                 throw new NotFoundException($"Policy '{request.PolicyId}' not found.");
 
-            if (policy.Status != PolicyStatus.Pending && policy.Status != PolicyStatus.PaymentReceived)
+            if (policy.Status != PolicyStatus.PaymentReceived)
                 throw new InvalidOperationException(
-                    $"Cannot approve. Policy status is '{policy.Status}'. Only 'Pending' or 'PaymentReceived' policies can be approved.");
+                    $"Cannot approve. Policy status is '{policy.Status}'. Only policies with confirmed payment (PaymentReceived) can be approved.");
 
-            // If policy is PaymentReceived, verify that a Captured payment exists
-            if (policy.Status == PolicyStatus.PaymentReceived)
-            {
-                var hasCapturedPayment = await _context.Payments
-                    .AnyAsync(p => p.PolicyId == policy.Id
-                        && p.Status == PaymentStatus.Captured
-                        && !p.IsDeleted, ct);
+            // Verify that a Captured payment exists
+            var hasCapturedPayment = await _context.Payments
+                .AnyAsync(p => p.PolicyId == policy.Id
+                    && p.Status == PaymentStatus.Captured
+                    && !p.IsDeleted, ct);
 
-                if (!hasCapturedPayment)
-                    throw new InvalidOperationException(
-                        "Cannot approve policy in PaymentReceived status without a confirmed payment. " +
-                        "The payment may have been reversed. Please check payment status.");
-            }
+            if (!hasCapturedPayment)
+                throw new InvalidOperationException(
+                    "Cannot approve policy without a confirmed payment. " +
+                    "The payment may have been reversed. Please check payment status.");
 
             var oldStatus = policy.Status;
 

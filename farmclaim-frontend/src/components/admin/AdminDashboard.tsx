@@ -1870,10 +1870,10 @@ function AdminPoliciesPage() {
                           {p.paymentStatus}
                         </Badge>
                       </td>
-                      {(tab === "pending" || tab === "payment_received" || tab === "active") && (
+                      {(tab === "payment_received" || tab === "active") && (
                         <td className="p-3 text-right">
                           <div className="flex gap-1 justify-end">
-                            {(tab === "pending" || tab === "payment_received") && (
+                            {tab === "payment_received" && (
                               <>
                                 <Button
                                   size="sm"
@@ -1978,7 +1978,7 @@ function AdminPoliciesPage() {
                   <div className="font-semibold mt-1 text-emerald-700">{formatINR(lookupPolicy.sumInsured)}</div>
                 </div>
               </div>
-              {(lookupPolicy.status === "Pending" || lookupPolicy.status === "PaymentReceived") && (
+              {lookupPolicy.status === "PaymentReceived" && (
                 <div className="flex gap-2 pt-4 border-t">
                   <Button
                     onClick={() => { setSelectedPolicy(lookupPolicy); setApproveOpen(true); }}
