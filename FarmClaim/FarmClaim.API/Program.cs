@@ -207,7 +207,8 @@ builder.Services.AddHangfire(config => config
             SlidingInvisibilityTimeout = TimeSpan.FromMinutes(10),   // H5: increase for long Gemini jobs
             QueuePollInterval = TimeSpan.FromSeconds(15),
             UseRecommendedIsolationLevel = true,
-            SchemaName = "hangfire"  // M1: isolate Hangfire tables in their own schema
+            // SchemaName = "hangfire" — requires CREATE SCHEMA permission on Azure SQL
+            // Reverted: Azure Container Apps user doesn't have permission to create schemas
         }));
 
 builder.Services.AddHangfireServer();
