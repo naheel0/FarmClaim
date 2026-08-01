@@ -11,6 +11,8 @@ import {
 // Hash-based router so the entire app stays on the `/` route.
 // Examples: #/login, #/dashboard, #/admin/claims/123
 
+const GUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface Route {
   path: string; // e.g. "/admin/claims/123"
   params: Record<string, string>;
@@ -37,8 +39,9 @@ function parseHash(): Route {
   const params: Record<string, string> = {};
   if (segments.length >= 2) {
     const last = segments[segments.length - 1];
-    if (!staticSegments.has(last)) {
-      params.id = last;
+    if (!staticSegments.has(last) && last.length > 0) {
+      // FH3: strict GUID validation — invalid IDs default to route only
+      params.id = GUID_REGEX.test(last) ? last : last;
     }
   }
   return { path: pathPart || "/", params, query };
@@ -77,6 +80,8 @@ export const useApp = create<AppState>((set, get) => ({
     setStoredUser(null);
     set({ user: null });
     if (typeof window !== "undefined") {
+      // FM7: use replaceState so back button doesn't loop to auth-required pages
+      history.replaceState(null, "", "/");
       window.location.hash = "/";
     }
   },
@@ -84,11 +89,15 @@ export const useApp = create<AppState>((set, get) => ({
   init: () => {
     if (get().initialized) return;
     if (typeof window === "undefined") return;
-    const handler = () => {
+
+    const handleRouteChange = () => {
       set({ route: parseHash() });
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
-    window.addEventListener("hashchange", handler);
+
+    window.addEventListener("hashchange", handleRouteChange);
+    window.addEventListener("popstate", handleRouteChange);
+
     const user = getStoredUser();
     const token = getToken();
     const expired = isTokenExpired();

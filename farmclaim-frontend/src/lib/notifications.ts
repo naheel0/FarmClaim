@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as signalR from "@microsoft/signalr";
 import { getToken, API_BASE } from "./api";
+import { useApp } from "./store";
 
 export interface AppNotification {
   claimId: string;
@@ -22,14 +23,20 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [connected, setConnected] = useState(false);
   const connectionRef = useRef<signalR.HubConnection | null>(null);
+  // FC3: subscribe to user changes so connection restarts on login/logout
+  const user = useApp((s) => s.user);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) return;
+    if (!user) return;
+
+    // FM5: track connection errors for logging
+    let connectFailed = false;
 
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(`${API_BASE}/hubs/notifications`, {
-        accessTokenFactory: () => token,
+        // FC3: fresh token on every SignalR reconnect attempt — prevents
+        // stale reconnections after logout/login as different user
+        accessTokenFactory: () => getToken() ?? "",
         transport: signalR.HttpTransportType.LongPolling,
         skipNegotiation: false,
       })
@@ -49,7 +56,10 @@ export function useNotifications() {
     });
 
     connection.onclose(() => setConnected(false));
-    connection.onreconnected(() => setConnected(true));
+    connection.onreconnected(() => {
+      setConnected(true);
+      connectFailed = false;
+    });
 
     connection
       .start()
@@ -59,16 +69,17 @@ export function useNotifications() {
         connectionRef.current = connection;
       })
       .catch(() => {
+        connectFailed = true;
         // Backend unreachable — silently ignore. Connection will retry via automaticReconnect.
       });
 
     return () => {
-      connection.stop().catch(() => {});
-      globalConnection = null;
       connectionRef.current = null;
+      globalConnection = null;
+      connection.stop().catch(() => {});
       setConnected(false);
     };
-  }, []);
+  }, [user?.id]);
 
   const markAsRead = useCallback((index: number) => {
     setNotifications((prev) =>

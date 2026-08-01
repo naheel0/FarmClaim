@@ -62,7 +62,7 @@ export function isTokenExpired(): boolean {
   const token = getToken();
   if (!token) return true;
   const expiry = getTokenExpiry(token);
-  if (!expiry) return false;
+  if (!expiry) return true;   // treat un-parseable tokens as expired
   return Date.now() >= expiry - 60000;
 }
 
@@ -103,12 +103,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
   };
-  if (options.body) {
+  const method = (options.method || "GET").toUpperCase();
+  if (options.body && method !== "GET") {
     headers["Content-Type"] = "application/json";
   }
   if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const method = (options.method || "GET").toUpperCase();
 
   let res = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
@@ -130,9 +129,20 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
   }
 
+  // FH1: Retry once on 5xx server errors (backend restarting/network blip)
+  if (!res.ok && res.status >= 500 && res.status < 600) {
+    await new Promise((r) => setTimeout(r, 1500));
+    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new ApiError(text || res.statusText, res.status);
+    // FM5: sanitize error messages — strip server internals, stack traces
+    const safe = text
+      .replace(/<[^>]+>/g, "")     // strip HTML tags
+      .replace(/at\s+.*?\n/g, "")  // strip stack trace lines
+      .slice(0, 200);              // cap length
+    throw new ApiError(safe || res.statusText || "Something went wrong", res.status);
   }
   if (res.status === 204) return undefined as T;
   const ct = res.headers.get("content-type") || "";

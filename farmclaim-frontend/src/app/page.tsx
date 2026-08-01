@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { Component, type ReactNode, useEffect } from "react";
 import { useApp } from "@/lib/store";
 import { LandingPage } from "@/components/landing/LandingPage";
 import { LoginPage } from "@/components/auth/LoginPage";
@@ -12,14 +12,81 @@ import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Button } from "@/components/ui/button";
 import { Leaf } from "lucide-react";
 
-export default function Home() {
+// FL2: Error boundary to prevent white-screen crashes
+class ErrorBoundary extends Component<
+  { children: ReactNode; fallback?: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  state = { hasError: false, error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        this.props.fallback ?? (
+          <div className="min-h-screen grid place-items-center bg-background px-4">
+            <div className="text-center max-w-md">
+              <div className="h-12 w-12 rounded-2xl bg-red-100 grid place-items-center mx-auto mb-4">
+                <Leaf className="h-6 w-6 text-red-700" />
+              </div>
+              <h1 className="font-serif text-2xl font-semibold">Something went wrong</h1>
+              <p className="text-muted-foreground mt-2">
+                An unexpected error occurred. Please try refreshing the page.
+              </p>
+              <Button
+                onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+                className="mt-6 bg-emerald-700 hover:bg-emerald-800 text-white"
+              >
+                Reload page
+              </Button>
+            </div>
+          </div>
+        )
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const PAGE_TITLES: Record<string, string> = {
+  "/": "FarmClaim",
+  "/login": "Sign In — FarmClaim",
+  "/signup": "Create Account — FarmClaim",
+  "/forgot-password": "Reset Password — FarmClaim",
+  "/reset-password": "Reset Password — FarmClaim",
+  "/verify-email": "Verify Email — FarmClaim",
+};
+
+function getTitle(path: string): string {
+  if (path.startsWith("/admin")) return "Admin — FarmClaim";
+  if (path.startsWith("/dashboard/claims")) return "My Claims — FarmClaim";
+  if (path.startsWith("/dashboard/policies")) return "My Policies — FarmClaim";
+  if (path.startsWith("/dashboard/farms")) return "My Farms — FarmClaim";
+  if (path.startsWith("/dashboard/plans")) return "Browse Plans — FarmClaim";
+  if (path.startsWith("/dashboard/profile")) return "Profile — FarmClaim";
+  if (path.startsWith("/dashboard")) return "Dashboard — FarmClaim";
+  return PAGE_TITLES[path] ?? "FarmClaim";
+}
+
+export default function PageWithBoundary() {
+  return (
+    <ErrorBoundary>
+      <Home />
+    </ErrorBoundary>
+  );
+}
+
+function Home() {
   const { init, route, user, navigate } = useApp();
 
   useEffect(() => {
     init();
   }, [init]);
 
-  // Wait for init
+  // FM2: update document.title on every route change
+  useEffect(() => {
+    document.title = getTitle(route.path);
+  }, [route.path]);
+
   if (!useApp.getState().initialized) {
     return (
       <div className="min-h-screen grid place-items-center bg-background">
