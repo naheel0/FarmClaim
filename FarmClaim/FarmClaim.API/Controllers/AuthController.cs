@@ -173,6 +173,7 @@ namespace FarmClaim.API.Controllers
         // REFRESH — Rotate tokens via cookie
         // ============================================
         [HttpPost("refresh")]
+        [AllowAnonymous] // M15 FIX: Must be accessible without valid access token — caller's token is expired
         [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> Refresh()

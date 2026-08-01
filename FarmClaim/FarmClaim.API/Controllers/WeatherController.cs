@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -5,6 +6,7 @@ using System.Text.Json;
 namespace FarmClaim.API.Controllers
 {
     [ApiController]
+    [Authorize] // M26 FIX: Weather data requires authentication — prevents unauthenticated API access
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
     public class WeatherController : ControllerBase

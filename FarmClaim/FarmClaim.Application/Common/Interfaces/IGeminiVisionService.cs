@@ -15,5 +15,7 @@ namespace FarmClaim.Application.Common.Interfaces
         public string DamageDescription { get; set; } = string.Empty;
         public string Confidence { get; set; } = string.Empty;
         public string RawResponse { get; set; } = string.Empty;
+        // M6 FIX: Error marker — when true, admin query filters exclude this from "has AI" counts
+        public bool IsError { get; set; }
     }
 }

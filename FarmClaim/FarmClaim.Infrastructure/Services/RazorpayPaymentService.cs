@@ -140,16 +140,23 @@ namespace FarmClaim.Infrastructure.Services
                 return Task.FromResult(true);
             }
 
+            // M8 FIX: Null-check signature to prevent NRE on .ToLowerInvariant()
+            if (string.IsNullOrEmpty(signature))
+            {
+                _logger.LogWarning("Signature is null or empty for Order {OrderId}", orderId);
+                return Task.FromResult(false);
+            }
+
             // Razorpay signature = HMAC-SHA256(key_secret, orderId + "|" + paymentId)
             var payload = $"{orderId}|{paymentId}";
             var secret = _settings.KeySecret;
 
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
             var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
-            var computedSignature = Convert.ToHexString(computedHash).ToLower();
+            var computedSignature = Convert.ToHexString(computedHash).ToLowerInvariant();
 
             var computedBytes = Encoding.UTF8.GetBytes(computedSignature);
-            var receivedBytes = Encoding.UTF8.GetBytes(signature.ToLower());
+            var receivedBytes = Encoding.UTF8.GetBytes(signature.ToLowerInvariant());
             var isValid = CryptographicOperations.FixedTimeEquals(computedBytes, receivedBytes);
 
             if (!isValid)

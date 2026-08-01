@@ -33,6 +33,13 @@ export function ProfilePage() {
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // M22 FIX: Track whether user has made changes — disable Save until something is different
+  const isDirty = profile !== null && (
+    firstName !== (profile.firstName ?? "") ||
+    lastName !== (profile.lastName ?? "") ||
+    phone !== (profile.phoneNumber ?? "")
+  );
+
   // Email change state
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailStep, setEmailStep] = useState<"form" | "otp">("form");
@@ -254,7 +261,7 @@ export function ProfilePage() {
               <div className="flex justify-end pt-4 border-t">
                 <Button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || !isDirty}
                   className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5"
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

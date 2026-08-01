@@ -60,10 +60,14 @@ namespace FarmClaim.Infrastructure.Services
             var deleteParams = new DeletionParams(publicId);
             var result = await _cloudinary.DestroyAsync(deleteParams);
 
+            // M7 FIX: Throw on failure instead of just logging — caller can retry or queue for cleanup
             if (result.Error != null)
-                _logger.LogWarning("Cloudinary delete failed: {Error}", result.Error.Message);
-            else
-                _logger.LogInformation("Deleted Cloudinary image: {PublicId}", publicId);
+            {
+                _logger.LogError("Cloudinary delete failed for {PublicId}: {Error}", publicId, result.Error.Message);
+                throw new InvalidOperationException($"Failed to delete image {publicId}: {result.Error.Message}");
+            }
+
+            _logger.LogInformation("Deleted Cloudinary image: {PublicId}", publicId);
         }
     }
 }

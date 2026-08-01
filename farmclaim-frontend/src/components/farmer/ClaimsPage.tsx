@@ -398,7 +398,7 @@ function NewClaimForm({ onSaved }: { onSaved: () => void }) {
                 <Camera className="h-5 w-5 text-emerald-700" />
                 Upload photos
               </h3>
-              <span className="text-xs text-muted-foreground">{images.length}/6 photos</span>
+              <span className="text-xs text-muted-foreground">{images.length}/10 photos</span>
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
               {images.map((img, i) => (
@@ -413,7 +413,7 @@ function NewClaimForm({ onSaved }: { onSaved: () => void }) {
                   </button>
                 </div>
               ))}
-              {images.length < 6 && (
+              {images.length < 10 && (
                 <label className="aspect-square rounded-lg border-2 border-dashed border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50 grid place-items-center cursor-pointer transition-colors">
                   <input
                     type="file"
@@ -427,7 +427,7 @@ function NewClaimForm({ onSaved }: { onSaved: () => void }) {
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Upload up to 6 photos of the damage. Our AI vision model will analyse them.
+                Upload up to 10 photos of the damage. Our AI vision model will analyse them.
             </p>
           </CardContent>
         </Card>

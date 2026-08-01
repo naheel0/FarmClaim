@@ -138,10 +138,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    // FM5: sanitize error messages — strip server internals, stack traces
+    // M24 FIX: sanitize error messages — strip HTML, stack traces, and JSON payloads
     const safe = text
       .replace(/<[^>]+>/g, "")     // strip HTML tags
+      .replace(/\{.*\}/gs, "")     // strip JSON objects (greedy)
+      .replace(/\[.*\]/gs, "")     // strip JSON arrays
       .replace(/at\s+.*?\n/g, "")  // strip stack trace lines
+      .replace(/\s{2,}/g, " ")     // collapse whitespace
+      .trim()
       .slice(0, 200);              // cap length
     throw new ApiError(safe || res.statusText || "Something went wrong", res.status);
   }

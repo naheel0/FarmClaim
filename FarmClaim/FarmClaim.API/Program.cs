@@ -397,9 +397,19 @@ var app = builder.Build();
 // ============================================
 var emailServiceType = app.Services.GetRequiredService<FarmClaim.Application.Common.Interfaces.IEmailService>().GetType().Name;
 var elasticApiKey = Environment.GetEnvironmentVariable("ELASTIC_EMAIL_API_KEY");
+var emailSettings = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<FarmClaim.Infrastructure.Configuration.EmailSettings>>().Value;
 Console.WriteLine($"[STARTUP] IEmailService => {emailServiceType}");
 Console.WriteLine($"[STARTUP] ELASTIC_EMAIL_API_KEY => {(string.IsNullOrEmpty(elasticApiKey) ? "NOT SET" : "SET (length=" + elasticApiKey.Length + ")")}");
-Console.WriteLine($"[STARTUP] DummyMode => {app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<FarmClaim.Infrastructure.Configuration.EmailSettings>>().Value.DummyMode}");
+Console.WriteLine($"[STARTUP] DummyMode => {emailSettings.DummyMode}");
+
+// M13 FIX: Fail startup in production if API key is missing — app starts but emails silently fail
+if (!emailSettings.DummyMode && app.Environment.IsProduction()
+    && (string.IsNullOrEmpty(elasticApiKey) || elasticApiKey == "your-elastic-email-api-key-here"))
+{
+    throw new InvalidOperationException(
+        "ElasticEmail API key is not configured in Production. " +
+        "Set the ELASTIC_EMAIL_API_KEY environment variable.");
+}
 
 // ============================================
 // HTTP PIPELINE
@@ -468,31 +478,34 @@ if (app.Environment.IsDevelopment())
 // ============================================
 // SCHEDULE RECURRING JOBS
 // Hangfire resolves services from its own DI scope at execution time.
+// M1 FIX: Use explicit IST timezone — container runs UTC, but jobs should fire at IST times.
 // ============================================
+var ist = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+
 RecurringJob.AddOrUpdate<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>(
     "expire-policies-daily",
     job => job.ExpirePoliciesAsync(),
-    Cron.Daily(1, 0));
+    Cron.Daily(1, 0), ist);
 
 RecurringJob.AddOrUpdate<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>(
     "cleanup-tokens-daily",
     job => job.CleanupExpiredTokensAsync(),
-    Cron.Daily(2, 0));
+    Cron.Daily(2, 0), ist);
 
 RecurringJob.AddOrUpdate<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>(
     "policy-expiry-reminder-daily",
     job => job.SendPolicyExpiryRemindersAsync(),
-    Cron.Daily(9, 0));
+    Cron.Daily(9, 0), ist);
 
 RecurringJob.AddOrUpdate<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>(
     "cancel-stale-policies-weekly",
     job => job.CancelStalePendingPoliciesAsync(),
-    Cron.Weekly(DayOfWeek.Sunday, 3, 0));
+    Cron.Weekly(DayOfWeek.Sunday, 3, 0), ist);
 
 RecurringJob.AddOrUpdate<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>(
     "cancel-overdue-installments-daily",
     job => job.CancelOverdueInstallmentPoliciesAsync(),
-    Cron.Daily(4, 0));
+    Cron.Daily(4, 0), ist);
 
 Console.WriteLine("Recurring jobs scheduled: expire-policies, cleanup-tokens, expiry-reminder, cancel-stale-policies");
 

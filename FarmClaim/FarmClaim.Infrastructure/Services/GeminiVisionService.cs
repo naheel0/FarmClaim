@@ -235,8 +235,8 @@ namespace FarmClaim.Infrastructure.Services
                     DamagePercentage = damagePct,
                     DamageDescription = root.TryGetProperty("damageDescription", out var dd)
                         ? dd.GetString() ?? string.Empty : string.Empty,
-                    Confidence = root.TryGetProperty("confidence", out var cf)
-                        ? cf.GetString() ?? "Low" : "Low",
+                    Confidence = NormalizeConfidence(root.TryGetProperty("confidence", out var cf)
+                        ? cf.GetString() ?? null : null),
                     RawResponse = text
                 };
             }
@@ -250,10 +250,25 @@ namespace FarmClaim.Infrastructure.Services
         {
             return new AIAnalysisResult
             {
-                DamagePercentage = null,  // H5: null instead of 0 — signals analysis failure
+                DamagePercentage = null,
                 DamageDescription = "AI analysis could not be parsed.",
                 Confidence = "Low",
-                RawResponse = raw
+                RawResponse = raw,
+                // M6 FIX: Include error flag so admin query filter can detect parse failures.
+                // Serialized JSON will contain "error":true which the query checks for.
+                IsError = true
+            };
+        }
+
+        // M5 FIX: Normalize confidence to expected values — Gemini can return any string
+        private static string NormalizeConfidence(string? raw)
+        {
+            return raw?.ToLowerInvariant() switch
+            {
+                "high" => "High",
+                "medium" => "Medium",
+                "low" => "Low",
+                _ => "Low" // default for unrecognized values
             };
         }
     }
