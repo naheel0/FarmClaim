@@ -2,6 +2,7 @@
 using FarmClaim.Application.Common.Exceptions;
 using FarmClaim.Application.Features.InsurancePolicies.Commands.CreatePolicy;
 using FarmClaim.Application.Features.InsurancePolicies.Commands.DeletePolicy;
+using FarmClaim.Application.Features.InsurancePolicies.Commands.RenewPolicy;
 using FarmClaim.Application.Features.InsurancePolicies.Commands.UpdatePolicy;
 using FarmClaim.Application.Features.InsurancePolicies.DTOs;
 using FarmClaim.Application.Features.InsurancePolicies.Queries.GetMyPolicies;
@@ -132,6 +133,31 @@ namespace FarmClaim.API.Controllers
             catch (NotFoundException ex)
             {
                 return NotFound(new { error = ex.Message });
+            }
+        }
+
+        // ============================================
+        // POST /api/v1/Policies/{policyId}/renew
+        // ============================================
+        [HttpPost("{policyId}/renew")]
+        [Authorize(Roles = "Farmer")]
+        [ProducesResponseType(typeof(PolicyResponseDto), StatusCodes.Status201Created)]
+        public async Task<IActionResult> RenewPolicy(Guid policyId, [FromQuery] DateTime? startDate)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var command = new RenewPolicyCommand(policyId, userId, startDate);
+                var result = await _mediator.Send(command);
+                return CreatedAtAction(nameof(GetById), new { policyId = result.Id }, result);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (ValidationException ex)
+            {
+                return BadRequest(new { errors = ex.Errors });
             }
         }
 

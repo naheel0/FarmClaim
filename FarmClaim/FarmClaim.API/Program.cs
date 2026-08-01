@@ -2,8 +2,10 @@ using FarmClaim.API.Hubs;
 using FarmClaim.API.Middleware;
 using FarmClaim.Application.Common.Behaviors;
 using FarmClaim.Application.Common.Interfaces;
+using FarmClaim.Application.Common.Services;
 using FarmClaim.Infrastructure.Data;
 using FarmClaim.Infrastructure.JWT;
+using FarmClaim.Infrastructure.Services;
 using FluentValidation;
 using Hangfire;
 using MediatR;
@@ -36,6 +38,8 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
 });
 
 builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddScoped<IPolicyCreationService, PolicyCreationService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IFileStorageService, FarmClaim.Infrastructure.Services.CloudinaryStorageService>();
 

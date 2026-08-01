@@ -1,18 +1,17 @@
 ﻿using FarmClaim.Application.Common.DTOs;
 using FarmClaim.Application.Common.Exceptions;
-using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Claims.Commands.CreateClaim;
 using FarmClaim.Application.Features.Claims.Commands.DeleteClaim;
+using FarmClaim.Application.Features.Claims.Commands.DeleteClaimImage;
 using FarmClaim.Application.Features.Claims.Commands.UpdateClaim;
+using FarmClaim.Application.Features.Claims.Commands.UploadClaimImages;
 using FarmClaim.Application.Features.Claims.DTOs;
 using FarmClaim.Application.Features.Claims.Queries.GetClaimById;
+using FarmClaim.Application.Features.Claims.Queries.GetClaimTimeline;
 using FarmClaim.Application.Features.Claims.Queries.GetMyClaims;
-using FarmClaim.Domain.Entities;
-using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace FarmClaim.API.Controllers
@@ -24,22 +23,11 @@ namespace FarmClaim.API.Controllers
     public class ClaimsController : ControllerBase
     {
         private readonly IMediator _mediator;
-        private readonly IApplicationDbContext _context;
-        private readonly IFileStorageService _fileStorage;
-        private readonly IClaimBackgroundJobService _backgroundJobService;
         private readonly ILogger<ClaimsController> _logger;
 
-        public ClaimsController(
-            IMediator mediator,
-            IApplicationDbContext context,
-            IFileStorageService fileStorage,
-            IClaimBackgroundJobService backgroundJobService,
-            ILogger<ClaimsController> logger)
+        public ClaimsController(IMediator mediator, ILogger<ClaimsController> logger)
         {
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
-            _context = context ?? throw new ArgumentNullException(nameof(context));
-            _fileStorage = fileStorage ?? throw new ArgumentNullException(nameof(fileStorage));
-            _backgroundJobService = backgroundJobService ?? throw new ArgumentNullException(nameof(backgroundJobService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -70,6 +58,7 @@ namespace FarmClaim.API.Controllers
         [HttpPost("{claimId}/images")]
         [Authorize(Roles = "Farmer")]
         [RequestSizeLimit(50 * 1024 * 1024)]
+        [ProducesResponseType(typeof(object), StatusCodes.Status201Created)]
         public async Task<IActionResult> UploadImages(
             Guid claimId,
             [FromForm] IFormFileCollection images,
@@ -78,91 +67,19 @@ namespace FarmClaim.API.Controllers
             try
             {
                 var userId = GetUserId();
-
-                var claim = await _context.Claims
-                    .Include(c => c.Images)
-                    .Include(c => c.Policy).ThenInclude(p => p!.Farm)
-                    .FirstOrDefaultAsync(c => c.Id == claimId
-                        && c.UserId == userId
-                        && !c.IsDeleted);
-
-                if (claim == null)
-                    return NotFound(new { error = $"Claim {claimId} not found" });
-
-                if (claim.Status != ClaimStatus.Pending)
-                    return BadRequest(new { error = $"Cannot upload images to claim with status: {claim.Status}" });
-
-                if (claim.Images.Count + images.Count > 10)
-                    return BadRequest(new { error = "Maximum 10 images per claim" });
-
-                var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
-                var imageUrls = new List<string>();
-
-                for (int i = 0; i < images.Count; i++)
+                var imageFiles = images.Select(f => new UploadClaimImageFile
                 {
-                    var file = images[i];
-
-                    if (file.Length == 0)
-                        return BadRequest(new { error = $"File {file.FileName} is empty" });
-
-                    if (!allowedTypes.Contains(file.ContentType))
-                        return BadRequest(new { error = $"File {file.FileName}: only jpg, png, webp allowed" });
-
-                    if (file.Length > 10 * 1024 * 1024)
-                        return BadRequest(new { error = $"File {file.FileName} exceeds 10MB" });
-
-                    // 1. Upload to Cloudinary
-                    var folder = $"claims/{claimId}";
-                    using var stream = file.OpenReadStream();
-                    var uploadResult = await _fileStorage.UploadAsync(stream, file.FileName, folder);
-
-                    // 2. Save to DB
-                    var claimImage = new ClaimImage
-                    {
-                        Id = Guid.NewGuid(),
-                        ClaimId = claimId,
-                        ImageUrl = uploadResult.Url,
-                        FileName = uploadResult.FileName,
-                        FileType = uploadResult.FileType,
-                        FileSizeBytes = uploadResult.FileSizeBytes,
-                        DisplayOrder = claim.Images.Count + i,
-                        IsPrimary = claim.Images.Count == 0 && i == 0
-                    };
-
-                    _context.ClaimImages.Add(claimImage);
-                    await _context.SaveChangesAsync();
-
-                    imageUrls.Add(uploadResult.Url);
-                    claim.Images.Add(claimImage);
-
-                    _logger.LogInformation("Image saved: {Url}", uploadResult.Url);
-                }
-
-                // 3. Run Gemini AI via Hangfire background job
-                if (imageUrls.Count > 0)
-                {
-                    var cropTypeForJob = cropType ?? claim.Policy?.Farm?.CropType ?? "unknown";
-                    _backgroundJobService.EnqueueAIAnalysis(claimId, imageUrls, cropTypeForJob);
-                }
-
-                var uploadedImages = claim.Images
-                    .Where(img => imageUrls.Contains(img.ImageUrl))
-                    .Select(img => new ClaimImageDto
-                    {
-                        Id = img.Id,
-                        ImageUrl = img.ImageUrl,
-                        ThumbnailUrl = img.ThumbnailUrl,
-                        FileName = img.FileName,
-                        FileType = img.FileType,
-                        FileSizeBytes = img.FileSizeBytes,
-                        DisplayOrder = img.DisplayOrder,
-                        IsPrimary = img.IsPrimary
-                    }).ToList();
-
+                    Content = f.OpenReadStream(),
+                    FileName = f.FileName,
+                    ContentType = f.ContentType,
+                    Length = f.Length
+                }).ToList();
+                var command = new UploadClaimImagesCommand(claimId, userId, imageFiles, cropType);
+                var result = await _mediator.Send(command);
                 return StatusCode(StatusCodes.Status201Created, new
                 {
                     message = $"{images.Count} image(s) uploaded successfully",
-                    images = uploadedImages
+                    images = result
                 });
             }
             catch (Exception ex)
@@ -182,35 +99,8 @@ namespace FarmClaim.API.Controllers
             try
             {
                 var userId = GetUserId();
-
-                var claim = await _context.Claims
-                    .Include(c => c.Images)
-                    .FirstOrDefaultAsync(c => c.Id == claimId
-                        && c.UserId == userId
-                        && !c.IsDeleted);
-
-                if (claim == null)
-                    return NotFound(new { error = "Claim not found" });
-
-                if (claim.Status != ClaimStatus.Pending)
-                    return BadRequest(new { error = "Cannot delete images from a non-pending claim" });
-
-                var image = claim.Images.FirstOrDefault(i => i.Id == imageId);
-                if (image == null)
-                    return NotFound(new { error = "Image not found" });
-
-                // Delete from Cloudinary
-                if (!string.IsNullOrEmpty(image.ImageUrl))
-                {
-                    var publicId = ExtractPublicId(image.ImageUrl);
-                    if (!string.IsNullOrEmpty(publicId))
-                        await _fileStorage.DeleteAsync(publicId);
-                }
-
-                image.IsDeleted = true;
-                claim.Images.Remove(image);
-                await _context.SaveChangesAsync();
-
+                var command = new DeleteClaimImageCommand(claimId, imageId, userId);
+                await _mediator.Send(command);
                 return Ok(new { message = "Image deleted successfully" });
             }
             catch (Exception ex)
@@ -258,6 +148,27 @@ namespace FarmClaim.API.Controllers
             {
                 var userId = GetUserId();
                 var query = new GetClaimByIdQuery(claimId, userId);
+                var result = await _mediator.Send(query);
+                return Ok(result);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+        }
+
+        // ============================================
+        // GET /api/v1/Claims/{claimId}/timeline
+        // ============================================
+        [HttpGet("{claimId}/timeline")]
+        [Authorize(Roles = "Farmer")]
+        [ProducesResponseType(typeof(List<ClaimTimelineEntryDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetClaimTimeline(Guid claimId)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var query = new GetClaimTimelineQuery(claimId, userId);
                 var result = await _mediator.Send(query);
                 return Ok(result);
             }
@@ -319,26 +230,6 @@ namespace FarmClaim.API.Controllers
             return id;
         }
 
-        private static string? ExtractPublicId(string imageUrl)
-        {
-            try
-            {
-                var uri = new Uri(imageUrl);
-                var segments = uri.AbsolutePath.Split('/');
-                var uploadIndex = Array.IndexOf(segments, "upload");
-                if (uploadIndex < 0 || uploadIndex >= segments.Length - 1)
-                    return null;
-
-                var publicIdWithExt = string.Join('/', segments.Skip(uploadIndex + 1));
-                var dotIndex = publicIdWithExt.LastIndexOf('.');
-                return dotIndex > 0 ? publicIdWithExt.Substring(0, dotIndex) : publicIdWithExt;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
         private IActionResult HandleError(Exception ex)
         {
             switch (ex)
@@ -347,6 +238,8 @@ namespace FarmClaim.API.Controllers
                     return StatusCode(StatusCodes.Status404NotFound, new { error = "Resource not found" });
                 case UnauthorizedException _:
                     return StatusCode(StatusCodes.Status401Unauthorized, new { error = "Access denied" });
+                case ValidationException validationEx:
+                    return BadRequest(new { errors = validationEx.Errors });
                 default:
                     _logger.LogError(ex, "Unexpected error in ClaimsController");
                     return StatusCode(StatusCodes.Status500InternalServerError, new { error = "An unexpected error occurred" });
