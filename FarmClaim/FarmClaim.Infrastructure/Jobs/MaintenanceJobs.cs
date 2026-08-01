@@ -198,10 +198,17 @@ namespace FarmClaim.Infrastructure.Jobs
 
             var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "http://localhost:3000";
 
+            // H8 FIX: Track which farmers already received reminders in this run to prevent
+            // duplicates when Hangfire retries the entire job after a mid-loop failure
+            var notifiedFarmerIds = new HashSet<Guid>();
+
             foreach (var policy in policiesExpiringSoon)
             {
                 var farmer = policy.Farm?.User;
                 if (farmer == null) continue;
+
+                // Skip if this farmer was already notified (prevents duplicates on retry)
+                if (!notifiedFarmerIds.Add(farmer.Id)) continue;
 
                 await _emailQueue.EnqueueEmailAsync(
                     toEmail: farmer.Email,

@@ -348,7 +348,13 @@ function AdminClaimsPage() {
       .then((r) => setClaims(r.items))
       .finally(() => setLoading(false));
   };
-  useEffect(load, [statusFilter, search]);
+  // H19 FIX: Debounce search to avoid hammering the API on every keystroke
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(load, 350);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [statusFilter, search]);
 
   // Detail view
   const detailId = route.params.id;
@@ -469,19 +475,31 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
   };
 
   const approve = async () => {
+    const amount = parseFloat(approveAmount);
+    // H18 FIX: Validate amount is a valid positive number
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid approval amount");
+      return;
+    }
     setBusy(true);
     try {
-      await adminApi.approveClaim(claim.id, parseFloat(approveAmount));
+      await adminApi.approveClaim(claim.id, amount);
       toast.success("Claim approved");
       setApproveOpen(false);
-      setClaim({ ...claim, status: "Approved", approvedAmount: parseFloat(approveAmount), reviewedAt: new Date().toISOString() });
+      setClaim({ ...claim, status: "Approved", approvedAmount: amount, reviewedAt: new Date().toISOString() });
       onUpdated();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Approval failed");
     } finally {
       setBusy(false);
     }
   };
 
   const reject = async () => {
+    if (!rejectReason.trim()) {
+      toast.error("Please provide a rejection reason");
+      return;
+    }
     setBusy(true);
     try {
       await adminApi.rejectClaim(claim.id, rejectReason);
@@ -489,12 +507,18 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
       setRejectOpen(false);
       setClaim({ ...claim, status: "Rejected", rejectionReason: rejectReason, reviewedAt: new Date().toISOString() });
       onUpdated();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Rejection failed");
     } finally {
       setBusy(false);
     }
   };
 
   const pay = async () => {
+    if (!payRef.trim()) {
+      toast.error("Please enter a payment reference");
+      return;
+    }
     setBusy(true);
     try {
       await adminApi.payClaim(claim.id, payRef);
@@ -502,6 +526,8 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
       setPayOpen(false);
       setClaim({ ...claim, status: "Paid", paidAt: new Date().toISOString(), paymentReference: payRef });
       onUpdated();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Payment failed");
     } finally {
       setBusy(false);
     }

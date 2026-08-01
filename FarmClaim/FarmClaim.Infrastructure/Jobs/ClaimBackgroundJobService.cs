@@ -129,16 +129,16 @@ namespace FarmClaim.Infrastructure.Jobs
                 return;
             }
 
-            // C3: Skip AI analysis if it ran recently (within 2 minutes) —
-            // prevents redundant Gemini calls when multiple images are uploaded in quick succession
+            // H10 FIX: Skip AI analysis if it ran recently AND no new images were uploaded.
+            // Old logic used `imageCountAtLastAnalysis - wasAnalyzedWith` which was wrong —
+            // it counted ALL images, not just those at last analysis time.
             if (claim.AIAnalysisUpdatedAt.HasValue
                 && claim.AIAnalysisUpdatedAt.Value > DateTime.UtcNow.AddMinutes(-2))
             {
-                var imageCountAtLastAnalysis = claim.Images.Count(i => !i.IsDeleted);
-                var wasAnalyzedWith = claim.Images.Count(i => !i.IsDeleted && i.CreatedAt <= claim.AIAnalysisUpdatedAt.Value);
-                var newSinceAnalysis = imageCountAtLastAnalysis - wasAnalyzedWith;
+                // Count images created AFTER the last AI analysis — these are genuinely new
+                var newImageCount = claim.Images.Count(i => !i.IsDeleted && i.CreatedAt > claim.AIAnalysisUpdatedAt.Value);
 
-                if (newSinceAnalysis == 0)
+                if (newImageCount == 0)
                 {
                     _logger.LogInformation(
                         "Hangfire: Claim {ClaimId} AI already ran at {LastRun}, no new images — skipping",
@@ -148,7 +148,7 @@ namespace FarmClaim.Infrastructure.Jobs
 
                 _logger.LogInformation(
                     "Hangfire: Claim {ClaimId} has {NewCount} new images since last AI analysis — re-running",
-                    claimId, newSinceAnalysis);
+                    claimId, newImageCount);
             }
 
             var cropType = claim.Policy?.CropType ?? claim.Farm?.CropType ?? "unknown";

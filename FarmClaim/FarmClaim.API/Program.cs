@@ -67,8 +67,12 @@ builder.Services.AddHttpClient<IGeminiVisionService, FarmClaim.Infrastructure.Se
 })
 .AddPolicyHandler(GetRetryPolicy("Gemini Vision API", 3));
 
-// Separate HttpClient for downloading images (no API key attached)
-builder.Services.AddHttpClient("GeminiDownload");
+// H11 FIX: Separate HttpClient for downloading images (no API key attached)
+// Set a 15s timeout to prevent slow downloads from consuming Hangfire job lease time
+builder.Services.AddHttpClient("GeminiDownload", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 
 // ============================================
 // MEDIATR (CQRS)
@@ -116,10 +120,19 @@ else
 // ============================================
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 
-// FIX #7: JWT secret from env var (production-safe)
+// H17 FIX: JWT secret from env var (production-safe)
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
                 ?? jwtSettings["Secret"]
                 ?? throw new InvalidOperationException("JWT Secret not configured");
+
+// H17 FIX: Reject placeholder or short secrets — anyone who knows the default can forge admin tokens
+if (jwtSecret.Length < 32 || jwtSecret.Contains("your-super-secret", StringComparison.OrdinalIgnoreCase))
+{
+    throw new InvalidOperationException(
+        "JWT Secret is unsafe (too short or contains placeholder text). " +
+        "Set a strong secret via JWT_SECRET environment variable (min 32 characters).");
+}
+
 var secretKey = Encoding.UTF8.GetBytes(jwtSecret);
 
 builder.Services.AddAuthentication(options =>

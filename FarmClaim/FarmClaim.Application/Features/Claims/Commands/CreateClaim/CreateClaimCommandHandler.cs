@@ -131,16 +131,32 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
             }
 
             // Store image URLs as ClaimImage entities so the background job can fetch them
+            // H13 FIX: Only accept Cloudinary URLs — reject arbitrary URLs to prevent SSRF
             var initialImageUrls = command.Request.ImageUrls ?? new List<string>();
-            if (initialImageUrls.Count > 0)
+            var allowedImageHosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "res.cloudinary.com" };
+            var validatedImageUrls = new List<string>();
+
+            foreach (var url in initialImageUrls)
             {
-                for (int i = 0; i < initialImageUrls.Count; i++)
+                if (Uri.TryCreate(url, UriKind.Absolute, out var uri) && allowedImageHosts.Contains(uri.Host))
+                {
+                    validatedImageUrls.Add(url);
+                }
+                else
+                {
+                    _logger.LogWarning("Rejected non-Cloudinary image URL: {Url}", url);
+                }
+            }
+
+            if (validatedImageUrls.Count > 0)
+            {
+                for (int i = 0; i < validatedImageUrls.Count; i++)
                 {
                     var claimImage = new ClaimImage
                     {
                         Id = Guid.NewGuid(),
                         ClaimId = claim.Id,
-                        ImageUrl = initialImageUrls[i],
+                        ImageUrl = validatedImageUrls[i],
                         DisplayOrder = i,
                         IsPrimary = i == 0
                     };

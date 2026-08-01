@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Infrastructure.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -26,7 +27,8 @@ namespace FarmClaim.Infrastructure.Email.Services
         public ElasticEmailService(
             IOptions<EmailSettings> settings,
             ILogger<ElasticEmailService> logger,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory,
+            IHostEnvironment env)
         {
             _settings = settings?.Value ?? throw new ArgumentNullException(nameof(settings));
             _logger = logger;
@@ -35,6 +37,14 @@ namespace FarmClaim.Infrastructure.Email.Services
             // Env var takes precedence over config
             _apiKey = Environment.GetEnvironmentVariable("ELASTIC_EMAIL_API_KEY")
                       ?? _settings.SendGridApiKey;
+
+            // H1 FIX: Fail startup if DummyMode is enabled in Production
+            if (_settings.DummyMode && env.IsProduction())
+            {
+                throw new InvalidOperationException(
+                    "Email DummyMode is enabled in Production. " +
+                    "Set DummyMode=false in production config or remove the Email:DummyMode setting.");
+            }
 
             if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-elastic-email-api-key-here")
             {

@@ -55,9 +55,10 @@ namespace FarmClaim.API.Controllers
         // ============================================
         // READINESS PROBE — Are all dependencies OK?
         // GET /api/v1/health/detail
-        // Use for: Kubernetes readinessProbe, deployment gating, deep monitoring
+        // H2 FIX: Admin-only — exposes internal state that can be used for fingerprinting/DoS
         // ============================================
         [HttpGet("detail")]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(object), StatusCodes.Status503ServiceUnavailable)]
         public async Task<IActionResult> GetReadiness()

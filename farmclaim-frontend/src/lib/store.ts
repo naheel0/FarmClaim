@@ -58,6 +58,11 @@ interface AppState {
   init: () => void;
 }
 
+// H7 FIX: Store listener references so they can be cleaned up on unmount
+let _hashChangeHandler: (() => void) | null = null;
+let _popStateHandler: (() => void) | null = null;
+let _storageHandler: ((e: StorageEvent) => void) | null = null;
+
 export const useApp = create<AppState>((set, get) => ({
   route: typeof window !== "undefined" ? parseHash() : { path: "/", params: {}, query: {} },
   navigate: (path: string) => {
@@ -80,9 +85,10 @@ export const useApp = create<AppState>((set, get) => ({
     setStoredUser(null);
     set({ user: null });
     if (typeof window !== "undefined") {
-      // FM7: use replaceState so back button doesn't loop to auth-required pages
-      history.replaceState(null, "", "/");
-      window.location.hash = "/";
+      // H4 FIX: Use location.replace to fully replace current history entry
+      // instead of history.replaceState + setting hash separately.
+      // The old approach left stale hash entries causing infinite Back-button loops.
+      window.location.replace(window.location.pathname + "#/");
     }
   },
   initialized: false,
@@ -95,12 +101,40 @@ export const useApp = create<AppState>((set, get) => ({
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
-    window.addEventListener("hashchange", handleRouteChange);
-    window.addEventListener("popstate", handleRouteChange);
+    // H7 FIX: Store references so we can clean up
+    _hashChangeHandler = handleRouteChange;
+    _popStateHandler = handleRouteChange;
+    window.addEventListener("hashchange", _hashChangeHandler);
+    window.addEventListener("popstate", _popStateHandler);
+
+    // H6 FIX: Listen for cross-tab storage changes.
+    // When user logs out in Tab A, Tab B immediately syncs.
+    _storageHandler = (e: StorageEvent) => {
+      if (e.key === "farmclaim.token" && e.newValue === null) {
+        // Token removed in another tab — sync logout
+        set({ user: null });
+        if (typeof window !== "undefined") {
+          window.location.replace(window.location.pathname + "#/");
+        }
+      } else if (e.key === "farmclaim.user" && e.newValue) {
+        try {
+          const user = JSON.parse(e.newValue) as UserDto;
+          set({ user });
+        } catch { /* ignore malformed */ }
+      }
+    };
+    window.addEventListener("storage", _storageHandler);
 
     const user = getStoredUser();
     const token = getToken();
     const expired = isTokenExpired();
+
+    // H5 FIX: Purge stale token from localStorage if expired
+    if (token && expired) {
+      setToken(null);
+      setStoredUser(null);
+    }
+
     set({
       route: parseHash(),
       user: token && !expired ? user : null,

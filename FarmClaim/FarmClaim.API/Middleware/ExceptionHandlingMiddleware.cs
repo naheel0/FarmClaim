@@ -37,6 +37,14 @@ namespace FarmClaim.API.Middleware
 
         private async Task HandleExceptionAsync(HttpContext context, Exception ex, long elapsedMs)
         {
+            // H3 FIX: If response already started streaming, we can't write to it.
+            // Attempting to set StatusCode throws InvalidOperationException which hides the original error.
+            if (context.Response.HasStarted)
+            {
+                _logger.LogError(ex, "Response already started; cannot write error response. Rethrowing.");
+                return;
+            }
+
             var traceId = Activity.Current?.Id ?? context.TraceIdentifier;
             var response = context.Response;
             response.ContentType = "application/json";
