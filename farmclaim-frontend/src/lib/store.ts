@@ -40,8 +40,8 @@ function parseHash(): Route {
   if (segments.length >= 2) {
     const last = segments[segments.length - 1];
     if (!staticSegments.has(last) && last.length > 0) {
-      // FH3: strict GUID validation — invalid IDs default to route only
-      params.id = GUID_REGEX.test(last) ? last : last;
+      // FH3: strict GUID validation — invalid IDs fall back to route without id
+      params.id = GUID_REGEX.test(last) ? last : "";
     }
   }
   return { path: pathPart || "/", params, query };

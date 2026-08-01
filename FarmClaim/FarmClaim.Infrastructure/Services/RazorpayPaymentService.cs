@@ -3,6 +3,7 @@ using System.Text;
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Payments.DTOs;
 using FarmClaim.Infrastructure.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Razorpay.Api;
@@ -17,13 +18,25 @@ namespace FarmClaim.Infrastructure.Services
     {
         private readonly RazorpaySettings _settings;
         private readonly ILogger<RazorpayPaymentService> _logger;
+        private readonly bool _isProduction;
 
         public RazorpayPaymentService(
             IOptions<RazorpaySettings> settings,
-            ILogger<RazorpayPaymentService> logger)
+            ILogger<RazorpayPaymentService> logger,
+            IHostEnvironment env)
         {
             _settings = settings?.Value ?? throw new ArgumentNullException(nameof(settings));
             _logger = logger;
+            _isProduction = env.IsProduction();
+
+            // C4 FIX: Hard fail at startup if DummyMode is accidentally enabled in Production.
+            // This prevents accepting fake payments when the env var is misconfigured.
+            if (_settings.DummyMode && _isProduction)
+            {
+                throw new InvalidOperationException(
+                    "Razorpay DummyMode is enabled in Production. " +
+                    "Set DummyMode=false in production config or set ASPNETCORE_ENVIRONMENT=Production.");
+            }
         }
 
         // ============================================
@@ -40,11 +53,8 @@ namespace FarmClaim.Infrastructure.Services
             if (string.IsNullOrEmpty(_settings.KeyId) || string.IsNullOrEmpty(_settings.KeySecret))
                 throw new InvalidOperationException("Razorpay KeyId/KeySecret not configured.");
 
-            // Dummy mode for local dev only — force disable in production via env var
-            var isProduction = string.Equals(
-                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
-                "Production", StringComparison.OrdinalIgnoreCase);
-            if (_settings.DummyMode && !isProduction)
+            // C4 FIX: Use injected _isProduction instead of fragile env-var string comparison
+            if (_settings.DummyMode && !_isProduction)
             {
                 _logger.LogInformation("DUMMY: Creating Razorpay order for amount {Amount}", amountInRupees);
                 return new CreateOrderResponseDto
@@ -124,10 +134,7 @@ namespace FarmClaim.Infrastructure.Services
         // ============================================
         public Task<bool> VerifySignatureAsync(string orderId, string paymentId, string signature)
         {
-            var isProduction = string.Equals(
-                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
-                "Production", StringComparison.OrdinalIgnoreCase);
-            if (_settings.DummyMode && !isProduction)
+            if (_settings.DummyMode && !_isProduction)
             {
                 _logger.LogInformation("DUMMY: Skipping signature verification");
                 return Task.FromResult(true);
@@ -158,10 +165,7 @@ namespace FarmClaim.Infrastructure.Services
         // ============================================
         public async Task<PaymentDetailsDto> FetchPaymentDetailsAsync(string paymentId)
         {
-            var isProduction = string.Equals(
-                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
-                "Production", StringComparison.OrdinalIgnoreCase);
-            if (_settings.DummyMode && !isProduction)
+            if (_settings.DummyMode && !_isProduction)
             {
                 return new PaymentDetailsDto
                 {
@@ -266,10 +270,7 @@ namespace FarmClaim.Infrastructure.Services
         // ============================================
         public bool VerifyWebhookSignature(string payload, string signature)
         {
-            var isProduction = string.Equals(
-                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
-                "Production", StringComparison.OrdinalIgnoreCase);
-            if (_settings.DummyMode && !isProduction)
+            if (_settings.DummyMode && !_isProduction)
             {
                 _logger.LogWarning("DUMMY: Skipping webhook signature verification");
                 return true;
@@ -309,10 +310,7 @@ namespace FarmClaim.Infrastructure.Services
             if (string.IsNullOrEmpty(_settings.KeyId) || string.IsNullOrEmpty(_settings.KeySecret))
                 throw new InvalidOperationException("Razorpay KeyId/KeySecret not configured.");
 
-            var isProduction = string.Equals(
-                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
-                "Production", StringComparison.OrdinalIgnoreCase);
-            if (_settings.DummyMode && !isProduction)
+            if (_settings.DummyMode && !_isProduction)
             {
                 _logger.LogInformation("DUMMY: Refunding payment {PaymentId}, Amount={Amount}, Reason={Reason}",
                     razorpayPaymentId, amountInRupees, reason);

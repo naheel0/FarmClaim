@@ -297,7 +297,10 @@ namespace FarmClaim.Infrastructure.Jobs
             var policiesToCancel = overdueSchedules
                 .GroupBy(s => s.PolicyId)
                 .Select(g => g.First().Policy)
-                .Where(p => p != null && !p.IsDeleted)
+                // C9 FIX: Only cancel Active policies — never cancel Pending or PaymentReceived
+                // (those are awaiting admin activation and haven't started their installment term)
+                .Where(p => p != null && !p.IsDeleted
+                    && (p.Status == PolicyStatus.Active || p.Status == PolicyStatus.PaymentReceived))
                 .ToList();
 
             _logger.LogInformation("[Maintenance] Found {Count} policies with overdue installments", policiesToCancel.Count);

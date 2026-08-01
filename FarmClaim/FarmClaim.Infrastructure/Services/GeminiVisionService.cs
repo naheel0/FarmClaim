@@ -102,8 +102,33 @@ namespace FarmClaim.Infrastructure.Services
                         usage.TryGetProperty("totalTokenCount", out var t) ? t.GetInt32() : -1);
                 }
 
-                var text = json
-                    .GetProperty("candidates")[0]
+                // C11 FIX: Safe property access — Gemini may return safety-blocked or error responses
+                // that have no "candidates" key or an empty array, causing KeyNotFoundException/IndexOutOfRangeException.
+                if (!json.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
+                {
+                    // Check for safety block or error payload
+                    var blockReason = "";
+                    if (json.TryGetProperty("promptFeedback", out var pf) &&
+                        pf.TryGetProperty("blockReason", out var br))
+                    {
+                        blockReason = br.GetString() ?? "unknown";
+                    }
+                    var errorMsg = $"Gemini returned no candidates (blockReason: {blockReason})";
+                    _logger.LogWarning("Gemini analysis failed: {Error}", errorMsg);
+                    return Fallback(errorMsg);
+                }
+
+                var candidate = candidates[0];
+
+                // Check for safety ratings indicating blocked content
+                if (candidate.TryGetProperty("finishReason", out var finishReason) &&
+                    finishReason.GetString() == "SAFETY")
+                {
+                    _logger.LogWarning("Gemini analysis blocked by safety filter");
+                    return Fallback("Analysis blocked by content safety filter");
+                }
+
+                var text = candidate
                     .GetProperty("content")
                     .GetProperty("parts")[0]
                     .GetProperty("text")

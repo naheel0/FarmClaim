@@ -397,19 +397,29 @@ function PolicyDetail({ id }: { id: string }) {
                   )}
                 </Button>
               )}
-              {policy.status === "Expired" && (
-                <Button
-                  className="w-full justify-start gap-2 bg-emerald-700 hover:bg-emerald-800 text-white"
-                  onClick={handleRenew}
-                  disabled={renewing}
-                >
-                  {renewing ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> Renewing…</>
-                  ) : (
-                    <><Calendar className="h-4 w-4" /> Renew policy</>
-                  )}
-                </Button>
-              )}
+              {/* C8 FIX: Show renew button for Active policies within 7 days of expiry, or Expired policies */}
+              {(() => {
+                const isExpired = policy.status === "Expired";
+                const daysToExpiry = Math.ceil(
+                  (new Date(policy.endDate).getTime() - Date.now()) / 86400000
+                );
+                const canRenewEarly =
+                  policy.status === "Active" && daysToExpiry <= 7 && daysToExpiry >= 0;
+                if (!isExpired && !canRenewEarly) return null;
+                return (
+                  <Button
+                    className="w-full justify-start gap-2 bg-emerald-700 hover:bg-emerald-800 text-white"
+                    onClick={handleRenew}
+                    disabled={renewing}
+                  >
+                    {renewing ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Renewing…</>
+                    ) : (
+                      <><Calendar className="h-4 w-4" /> {isExpired ? "Renew policy" : "Renew now (within 7 days)"}</>
+                    )}
+                  </Button>
+                );
+              })()}
               <Button
                 variant="outline"
                 className="w-full justify-start gap-2"

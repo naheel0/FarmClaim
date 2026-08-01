@@ -129,8 +129,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
   }
 
-  // FH1: Retry once on 5xx server errors (backend restarting/network blip)
-  if (!res.ok && res.status >= 500 && res.status < 600) {
+  // C2 FIX: Only retry on safe methods (GET/HEAD). Retrying POST/PUT/DELETE causes
+  // duplicate policies, double-filed claims, and double-charged payments.
+  if (!res.ok && res.status >= 500 && res.status < 600 && (method === "GET" || method === "HEAD")) {
     await new Promise((r) => setTimeout(r, 1500));
     res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   }
@@ -496,6 +497,14 @@ export const paymentsApi = {
             error: resp?.error?.description ?? "Payment failed",
           });
         });
+        // C3 FIX: Handle modal dismiss — without this, closing the Razorpay modal
+        // leaves the Promise hanging and the UI spinner locked forever.
+        rzp.on("modal.ondismiss", () => {
+          resolve({
+            ok: false,
+            error: "Payment cancelled",
+          });
+        });
         rzp.open();
       });
     } catch (err) {
@@ -539,38 +548,28 @@ function mapDashboardStats(raw: any): AdminDashboardDto {
     totalClaims: raw.totalClaims ?? 0,
     pendingClaims: raw.pendingClaims ?? 0,
     pendingPolicies: raw.pendingPolicies ?? 0,
-    totalPremiumCollected: raw.totalPayoutAmount ?? 0,
-    totalClaimsPaid: raw.paidClaims ?? 0,
+    // C5 FIX: Use correct backend field names (DashboardStatsDto uses PascalCase from .NET)
+    totalPremiumCollected: raw.totalPayoutAmount ?? raw.TotalPayoutAmount ?? 0,
+    totalClaimsPaid: raw.paidClaims ?? raw.PaidClaims ?? 0,
     claimsByStatus: {
-      Pending: raw.pendingClaims ?? 0,
-      UnderReview: raw.underReviewClaims ?? 0,
-      Approved: raw.approvedClaims ?? 0,
-      Rejected: raw.rejectedClaims ?? 0,
-      Paid: raw.paidClaims ?? 0,
+      Pending: raw.pendingClaims ?? raw.PendingClaims ?? 0,
+      UnderReview: raw.underReviewClaims ?? raw.UnderReviewClaims ?? 0,
+      Approved: raw.approvedClaims ?? raw.ApprovedClaims ?? 0,
+      Rejected: raw.rejectedClaims ?? raw.RejectedClaims ?? 0,
+      Paid: raw.paidClaims ?? raw.PaidClaims ?? 0,
     },
     policiesByStatus: {
-      Pending: raw.pendingPolicies ?? 0,
-      Active: raw.activePolicies ?? 0,
-      Rejected: raw.rejectedPolicies ?? 0,
-      Expired: raw.expiredPolicies ?? 0,
+      Pending: raw.pendingPolicies ?? raw.PendingPolicies ?? 0,
+      Active: raw.activePolicies ?? raw.ActivePolicies ?? 0,
+      Rejected: raw.rejectedPolicies ?? raw.RejectedPolicies ?? 0,
+      Expired: raw.expiredPolicies ?? raw.ExpiredPolicies ?? 0,
     },
     claimsByIncidentType: Object.fromEntries(
-      (raw.incidentBreakdown ?? []).map((i: any) => [i.incidentType, i.count])
+      (raw.incidentBreakdown ?? raw.IncidentBreakdown ?? []).map((i: any) => [i.incidentType, i.count])
     ),
-    recentClaims: (raw.topFarms ?? []).slice(0, 5).map((t: any) => ({
-      id: t.farmId,
-      policyId: "",
-      farmId: t.farmId,
-      policyNumber: null,
-      farmName: t.farmName,
-      incidentDate: "",
-      incidentType: "Other" as any,
-      status: "Pending" as any,
-      approvedAmount: null,
-      createdAt: "",
-      imageCount: 0,
-    })),
-    premiumTrend: (raw.monthlyTrends ?? []).map((m: any) => ({
+    // C5 FIX: Backend returns TopFarms — only use for "top farms" section, NOT as recentClaims
+    recentClaims: [],
+    premiumTrend: (raw.monthlyTrends ?? raw.MonthlyTrends ?? []).map((m: any) => ({
       month: m.month,
       premium: m.amount ?? 0,
       claims: m.claims ?? 0,

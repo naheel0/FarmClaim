@@ -660,13 +660,52 @@ function ClaimDetail({ id }: { id: string }) {
                     </div>
                   </div>
                 </div>
-                <p className="text-foreground/90 leading-relaxed">
-                  {claim.aiAnalysisResult}
-                </p>
-                <div className="grid grid-cols-3 gap-3 mt-4">
-                  <AIStat icon={Satellite} label="Satellite NDVI" value="34.8%" />
-                  <AIStat icon={CloudRain} label="Weather match" value="Confirmed" />
-                  <AIStat icon={Brain} label="Confidence" value="94%" />
+                {/* C6 FIX: Parse the JSON analysis result instead of showing fabricated stats */}
+                <div>
+                {(() => {
+                  let parsed: any = null;
+                  try {
+                    // Try to extract JSON from the string (may have surrounding text)
+                    const jsonStart = claim.aiAnalysisResult.indexOf("{");
+                    const jsonEnd = claim.aiAnalysisResult.lastIndexOf("}");
+                    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                      parsed = JSON.parse(claim.aiAnalysisResult.substring(jsonStart, jsonEnd + 1));
+                    }
+                  } catch {
+                    // Not JSON — show as plain text description
+                  }
+                  const damagePct = parsed?.damagePercentage;
+                  const confidence = parsed?.confidence ?? null;
+                  const description = parsed?.damageDescription ?? claim.aiAnalysisResult;
+                  return (
+                    <>
+                      <p className="text-foreground/90 leading-relaxed">{description}</p>
+                      <div className="grid grid-cols-3 gap-3 mt-4">
+                        {damagePct != null && (
+                          <AIStat
+                            icon={Satellite}
+                            label="Damage estimate"
+                            value={`${Math.round(damagePct)}%`}
+                          />
+                        )}
+                        {confidence && (
+                          <AIStat
+                            icon={CloudRain}
+                            label="Confidence"
+                            value={confidence}
+                          />
+                        )}
+                        {claim.weatherSnapshot && (
+                          <AIStat
+                            icon={Brain}
+                            label="Weather data"
+                            value="Verified"
+                          />
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
                 </div>
               </CardContent>
             </Card>

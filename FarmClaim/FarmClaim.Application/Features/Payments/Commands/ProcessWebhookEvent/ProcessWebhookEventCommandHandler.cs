@@ -95,12 +95,25 @@ namespace FarmClaim.Application.Features.Payments.Commands.ProcessWebhookEvent
             {
                 webhookEvent.ProcessingError = ex.Message;
                 _logger.LogError(ex, "Failed to process webhook event {EventId}", eventId);
-                throw;
             }
-            finally
+
+            // C1 FIX: Always persist the webhook event record (success or failure) in a SEPARATE save.
+            // This avoids the old pattern where the finally block could commit partial handler state.
+            // Each handler saves its own changes; this save is only for the audit trail.
+            try
             {
                 _context.WebhookEvents.Add(webhookEvent);
                 await _context.SaveChangesAsync(ct);
+            }
+            catch (Exception saveEx)
+            {
+                _logger.LogError(saveEx, "Failed to persist webhook event record for {EventId}", eventId);
+            }
+
+            // Re-throw if the handler failed, so the caller (controller) returns 503
+            if (webhookEvent.ProcessingError != null)
+            {
+                throw new InvalidOperationException($"Webhook processing failed: {webhookEvent.ProcessingError}");
             }
 
             return true;
