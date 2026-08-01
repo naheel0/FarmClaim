@@ -35,6 +35,26 @@ namespace FarmClaim.Application.Features.InsurancePlans.Commands.CreatePlan
                 .Must(x => !x.MinAreaInHectares.HasValue || !x.MaxAreaInHectares.HasValue
                            || x.MinAreaInHectares <= x.MaxAreaInHectares)
                 .WithMessage("MinAreaInHectares cannot exceed MaxAreaInHectares");
+
+            // Installment validation
+            When(x => x.Request.SupportsInstallments, () =>
+            {
+                RuleFor(x => x.Request.InstallmentCount)
+                    .NotNull().WithMessage("Installment count is required when installments are supported")
+                    .GreaterThan(1).WithMessage("Installment count must be greater than 1");
+
+                RuleFor(x => x.Request.InstallmentFrequency)
+                    .NotNull().WithMessage("Installment frequency is required when installments are supported");
+            });
+
+            When(x => !x.Request.SupportsInstallments, () =>
+            {
+                RuleFor(x => x.Request.InstallmentCount)
+                    .Null().WithMessage("Installment count must be null when installments are not supported");
+
+                RuleFor(x => x.Request.InstallmentFrequency)
+                    .Null().WithMessage("Installment frequency must be null when installments are not supported");
+            });
         }
     }
 }

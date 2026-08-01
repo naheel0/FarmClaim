@@ -99,42 +99,57 @@ namespace FarmClaim.Application.Features.Payments.Commands.VerifyPayment
             payment.Status = PaymentStatus.Captured;
             payment.CapturedAt = DateTime.UtcNow;
 
+            bool isInstallmentPayment = payment.PremiumScheduleId.HasValue;
+            int installmentNumber = 0;
+            int totalInstallments = 0;
+
             // Handle installment payments
             if (payment.PremiumScheduleId.HasValue)
             {
                 var schedule = await _context.PremiumSchedules
-                    .FirstOrDefaultAsync(s => s.Id == payment.PremiumScheduleId.Value && !s.IsDeleted, ct);
+                    .FirstOrDefaultAsync(s => s.Id == payment.PremiumScheduleId.Value
+                        && !s.IsDeleted, ct);
 
-                if (schedule != null)
+                if (schedule == null || schedule.Status != PremiumScheduleStatus.Paid)
                 {
-                    schedule.Status = PremiumScheduleStatus.Paid;
-                    schedule.PaidAt = DateTime.UtcNow;
-                    schedule.PaymentId = payment.Id;
-
-                    if (schedule.Policy != null)
+                    if (schedule != null && schedule.Status == PremiumScheduleStatus.Pending)
                     {
-                        var policy = schedule.Policy;
-                        var totalInstallments = policy.PremiumSchedules.Count(s => !s.IsDeleted);
-                        var paidCount = policy.PremiumSchedules.Count(s => !s.IsDeleted && s.Status == PremiumScheduleStatus.Paid);
+                        schedule.Status = PremiumScheduleStatus.Paid;
+                        schedule.PaidAt = DateTime.UtcNow;
+                        schedule.PaymentId = payment.Id;
+                    }
 
-                        policy.CurrentInstallmentNumber = paidCount;
-                        policy.InstallmentAmount = schedule.AmountDue;
+                    var schedules = await _context.PremiumSchedules
+                        .Where(s => s.PolicyId == payment.PolicyId && !s.IsDeleted)
+                        .ToListAsync(ct);
 
-                        var nextSchedule = policy.PremiumSchedules
-                            .Where(s => !s.IsDeleted && s.Status == PremiumScheduleStatus.Pending)
+                    totalInstallments = schedules.Count;
+                    installmentNumber = schedules.Count(s => s.Status == PremiumScheduleStatus.Paid);
+
+                    if (payment.Policy != null)
+                    {
+                        payment.Policy.CurrentInstallmentNumber = installmentNumber;
+
+                        var nextSchedule = schedules
+                            .Where(s => s.Status == PremiumScheduleStatus.Pending)
                             .OrderBy(s => s.InstallmentNumber)
                             .FirstOrDefault();
 
-                        policy.NextInstallmentDueDate = nextSchedule?.DueDate;
+                        payment.Policy.NextInstallmentDueDate = nextSchedule?.DueDate;
 
-                        if (paidCount >= totalInstallments && totalInstallments > 0)
+                        if (installmentNumber >= totalInstallments && totalInstallments > 0)
                         {
                             _logger.LogInformation(
                                 "All installments paid for policy {PolicyId}. Transitioning to PaymentReceived.",
-                                policy.Id);
-                            policy.Status = PolicyStatus.PaymentReceived;
+                                payment.Policy.Id);
+                            payment.Policy.Status = PolicyStatus.PaymentReceived;
                         }
                     }
+                }
+                else
+                {
+                    _logger.LogWarning("Schedule {ScheduleId} already paid — skipping installment update",
+                        payment.PremiumScheduleId.Value);
                 }
             }
             // Transition policy from Pending to PaymentReceived (single full payment)
@@ -192,7 +207,9 @@ namespace FarmClaim.Application.Features.Payments.Commands.VerifyPayment
             return new VerifyPaymentResponseDto
             {
                 Success = true,
-                Message = "Payment verified successfully. Your policy is now active.",
+                Message = isInstallmentPayment
+                    ? $"Installment {installmentNumber} of {totalInstallments} paid successfully. Policy remains pending until all installments are received."
+                    : "Payment verified successfully. Your policy is now active.",
                 PaymentId = payment.Id,
                 PolicyId = payment.PolicyId,
                 PolicyNumber = payment.Policy?.PolicyNumber,

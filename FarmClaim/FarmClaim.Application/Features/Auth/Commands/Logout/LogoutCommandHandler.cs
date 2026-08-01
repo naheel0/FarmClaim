@@ -22,17 +22,20 @@ namespace FarmClaim.Application.Features.Auth.Commands.Logout
         {
             _logger.LogInformation("Logging out: {UserId}", request.UserId);
 
-            var user = await _context.Users
-                .Include(u => u.RefreshToken)
-                .FirstOrDefaultAsync(u => u.Id == request.UserId, ct);
+            var activeTokens = await _context.RefreshTokens
+                .Where(t => t.UserId == request.UserId && !t.IsRevoked)
+                .ToListAsync(ct);
 
-            if (user?.RefreshToken != null)
+            foreach (var token in activeTokens)
             {
-                user.RefreshToken.IsRevoked = true;
-                user.RefreshToken.RevokedAt = DateTime.UtcNow;
-                user.RefreshToken.ReasonRevoked = "User logged out";
-                await _context.SaveChangesAsync(ct);
+                token.IsRevoked = true;
+                token.RevokedAt = DateTime.UtcNow;
+                token.ReasonRevoked = "User logged out";
             }
+
+            if (activeTokens.Count > 0)
+                await _context.SaveChangesAsync(ct);
+
             return true;
         }
     }

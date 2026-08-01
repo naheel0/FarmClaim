@@ -186,7 +186,8 @@ namespace FarmClaim.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Razorpay webhook processing failed");
-                return Ok(new { received = true, error = "Processing failed but acknowledged" });
+                // Return 503 so Razorpay retries the webhook (200 would stop retries)
+                return StatusCode(503, new { error = "Processing failed" });
             }
         }
 

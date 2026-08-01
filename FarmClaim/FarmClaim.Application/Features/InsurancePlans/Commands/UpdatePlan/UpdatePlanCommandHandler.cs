@@ -54,6 +54,9 @@ namespace FarmClaim.Application.Features.InsurancePlans.Commands.UpdatePlan
             plan.MinAreaInHectares = command.Request.MinAreaInHectares;
             plan.MaxAreaInHectares = command.Request.MaxAreaInHectares;
             plan.PolicyDurationMonths = command.Request.PolicyDurationMonths;
+            plan.SupportsInstallments = command.Request.SupportsInstallments;
+            plan.InstallmentCount = command.Request.InstallmentCount;
+            plan.InstallmentFrequency = command.Request.InstallmentFrequency;
 
             await _context.SaveChangesAsync(ct);
 

@@ -37,7 +37,7 @@ namespace FarmClaim.Application.Features.Auth.Commands.ResetPassword
                 .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, ct);
 
             if (user == null)
-                throw new NotFoundException("User not found.");
+                throw new ValidationException(new List<string> { "Invalid email or reset token." });
 
             // Block password reset for suspended/blocked users
             if (user.Status != UserStatus.Active)

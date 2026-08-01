@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using FarmClaim.Domain.Enums;
 
 namespace FarmClaim.Application.Features.InsurancePlans.DTOs
 {
@@ -40,5 +41,13 @@ namespace FarmClaim.Application.Features.InsurancePlans.DTOs
         [Required]
         [Range(1, 60)]
         public int PolicyDurationMonths { get; set; } = 12;
+
+        // Installment support
+        public bool SupportsInstallments { get; set; }
+
+        [Range(2, 60)]
+        public int? InstallmentCount { get; set; }
+
+        public InstallmentFrequency? InstallmentFrequency { get; set; }
     }
 }

@@ -70,6 +70,19 @@ namespace FarmClaim.Application.Features.Admin.Commands.RejectPolicy
                             capturedPayment.Status = PaymentStatus.Refunded;
                             capturedPayment.RefundedAt = DateTime.UtcNow;
                             capturedPayment.Notes = $"Refunded on rejection. RefundId: {refundResult.RefundId}, Amount: ₹{refundResult.AmountRefunded}";
+
+                            // Reset associated PremiumSchedule if installment payment
+                            if (capturedPayment.PremiumScheduleId.HasValue)
+                            {
+                                var schedule = await _context.PremiumSchedules
+                                    .FirstOrDefaultAsync(s => s.Id == capturedPayment.PremiumScheduleId.Value && !s.IsDeleted, ct);
+                                if (schedule != null && schedule.Status == PremiumScheduleStatus.Paid)
+                                {
+                                    schedule.Status = PremiumScheduleStatus.Pending;
+                                    schedule.PaidAt = null;
+                                }
+                            }
+
                             _logger.LogInformation("Refund initiated for Payment {PaymentId}: RefundId={RefundId}",
                                 capturedPayment.Id, refundResult.RefundId);
                         }

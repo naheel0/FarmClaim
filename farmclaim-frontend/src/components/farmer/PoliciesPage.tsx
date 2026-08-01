@@ -7,6 +7,7 @@ import type {
   FarmResponseDto,
   InsurancePlanDto,
   PolicyResponseDto,
+  PremiumScheduleDto,
 } from "@/lib/types";
 import { PageHeader } from "@/components/layout/DashboardShell";
 import { Card, CardContent } from "@/components/ui/card";
@@ -177,6 +178,7 @@ function PolicyDetail({ id }: { id: string }) {
   const [payments, setPayments] = useState<any[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [renewing, setRenewing] = useState(false);
   type PayStep = "idle" | "creating" | "checkout" | "verifying" | "done";
   const [payStep, setPayStep] = useState<PayStep>("idle");
 
@@ -202,6 +204,52 @@ function PolicyDetail({ id }: { id: string }) {
     } finally {
       setBusy(false);
       setDeleting(false);
+    }
+  };
+
+  const handleRenew = async () => {
+    setRenewing(true);
+    try {
+      const newPolicy = await policiesApi.renew(id);
+      toast.success("Policy renewed! New policy created.");
+      navigate(`/dashboard/policies/${newPolicy.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Renewal failed");
+    } finally {
+      setRenewing(false);
+    }
+  };
+
+  const handlePayInstallment = async (schedule: PremiumScheduleDto) => {
+    if (!policy) return;
+    setPayStep("checkout");
+    setPaying(true);
+    try {
+      const result = await paymentsApi.checkout(
+        policy.id,
+        {
+          name: user ? `${user.firstName} ${user.lastName}` : undefined,
+          email: user?.email ?? undefined,
+          phone: user?.phoneNumber ?? undefined,
+        },
+        schedule.id
+      );
+      if (!result.ok) {
+        toast.error(result.error ? `Payment failed: ${result.error}` : "Payment failed");
+        return;
+      }
+      toast.success("Installment payment successful!");
+      const [updated, updatedPayments] = await Promise.all([
+        policiesApi.get(id),
+        paymentsApi.getByPolicy(id),
+      ]);
+      setPolicy(updated);
+      setPayments(updatedPayments);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Payment failed");
+    } finally {
+      setPaying(false);
+      setPayStep("idle");
     }
   };
 
@@ -311,6 +359,24 @@ function PolicyDetail({ id }: { id: string }) {
                   {policy.rejectionReason}
                 </div>
               )}
+              {policy.currentInstallmentNumber && (
+                <DetailItem
+                  label="Installment"
+                  value={`${policy.currentInstallmentNumber} of ${policy.premiumSchedules?.length ?? "—"}`}
+                />
+              )}
+              {policy.nextInstallmentDueDate && (
+                <DetailItem
+                  label="Next installment due"
+                  value={formatDate(policy.nextInstallmentDueDate)}
+                />
+              )}
+              {policy.installmentAmount && (
+                <DetailItem
+                  label="Installment amount"
+                  value={formatINR(policy.installmentAmount)}
+                />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -328,6 +394,19 @@ function PolicyDetail({ id }: { id: string }) {
                     <><Loader2 className="h-4 w-4 animate-spin" /> {stepLabel[payStep]}</>
                   ) : (
                     <><CreditCard className="h-4 w-4" /> Pay {formatINR(policy.premium)}</>
+                  )}
+                </Button>
+              )}
+              {policy.status === "Expired" && (
+                <Button
+                  className="w-full justify-start gap-2 bg-emerald-700 hover:bg-emerald-800 text-white"
+                  onClick={handleRenew}
+                  disabled={renewing}
+                >
+                  {renewing ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Renewing…</>
+                  ) : (
+                    <><Calendar className="h-4 w-4" /> Renew policy</>
                   )}
                 </Button>
               )}
@@ -380,6 +459,53 @@ function PolicyDetail({ id }: { id: string }) {
             )}
           </CardContent>
         </Card>
+        {policy.premiumSchedules && policy.premiumSchedules.length > 0 && (
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="font-serif text-lg font-semibold mb-4">Installment Schedule</h3>
+              <div className="space-y-3">
+                {policy.premiumSchedules.map((schedule) => (
+                  <div key={schedule.id} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
+                    <div>
+                      <div className="font-medium">
+                        Installment {schedule.installmentNumber}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Due {formatDate(schedule.dueDate)}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <div className="font-semibold">{formatINR(schedule.amountDue)}</div>
+                        <Badge
+                          className={
+                            schedule.status === "Paid"
+                              ? "bg-emerald-100 text-emerald-800 border-0"
+                              : schedule.status === "Overdue"
+                                ? "bg-rose-100 text-rose-800 border-0"
+                                : "bg-amber-100 text-amber-800 border-0"
+                          }
+                        >
+                          {schedule.status}
+                        </Badge>
+                      </div>
+                      {schedule.status === "Pending" && (
+                        <Button
+                          size="sm"
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white"
+                          onClick={() => handlePayInstallment(schedule)}
+                          disabled={paying}
+                        >
+                          {paying ? <Loader2 className="h-3 w-3 animate-spin" /> : <CreditCard className="h-3 w-3" />}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Dialog open={editing} onOpenChange={setEditing}>

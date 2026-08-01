@@ -36,9 +36,7 @@ namespace FarmClaim.Infrastructure.Data.Configurations
                 .HasForeignKey(u => u.StatusChangedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            b.HasOne(u => u.RefreshToken)
-                .WithOne(rt => rt.User)
-                .HasForeignKey<RefreshToken>(rt => rt.UserId);
+            // RefreshToken relationship is configured in RefreshTokenConfiguration
         }
     }
 }

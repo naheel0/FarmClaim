@@ -5,6 +5,7 @@ import { useApp } from "@/lib/store";
 import { claimsApi, farmsApi, policiesApi } from "@/lib/api";
 import type {
   ClaimResponseDto,
+  ClaimTimelineEntryDto,
   FarmResponseDto,
   IncidentType,
   PolicyResponseDto,
@@ -1011,32 +1012,72 @@ function AIStat({
 }
 
 function Timeline({ claim }: { claim: ClaimResponseDto }) {
-  const events = [
-    {
-      label: "Claim submitted",
-      date: claim.createdAt,
-      done: true,
-    },
-    {
-      label: "Under review",
-      date: claim.reviewedAt ?? null,
-      done: ["UnderReview", "Approved", "Rejected", "Paid"].includes(claim.status),
-    },
-    {
-      label:
-        claim.status === "Rejected"
-          ? `Rejected${claim.rejectionReason ? `: ${claim.rejectionReason}` : ""}`
-          : "Approved",
-      date: claim.reviewedAt ?? null,
-      done: ["Approved", "Rejected", "Paid"].includes(claim.status),
-      isReject: claim.status === "Rejected",
-    },
-    {
-      label: "Payment disbursed",
-      date: claim.paidAt ?? null,
-      done: claim.status === "Paid",
-    },
-  ];
+  const [entries, setEntries] = useState<ClaimTimelineEntryDto[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    claimsApi
+      .getTimeline(claim.id)
+      .then(setEntries)
+      .catch(() => {
+        // Fallback to basic timeline if API fails
+        setEntries([]);
+      })
+      .finally(() => setLoading(false));
+  }, [claim.id]);
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex gap-3">
+            <Skeleton className="h-2.5 w-2.5 rounded-full" />
+            <div className="space-y-1 flex-1">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Build timeline events from API entries or fallback to basic timeline
+  const events = entries.length > 0
+    ? entries.map((entry) => ({
+        label: formatTimelineAction(entry.action),
+        description: entry.description,
+        date: entry.timestamp,
+        done: true,
+        isReject: entry.action.toLowerCase().includes("reject"),
+      }))
+    : [
+        {
+          label: "Claim submitted",
+          date: claim.createdAt,
+          done: true,
+        },
+        {
+          label: "Under review",
+          date: claim.reviewedAt ?? null,
+          done: ["UnderReview", "Approved", "Rejected", "Paid"].includes(claim.status),
+        },
+        {
+          label:
+            claim.status === "Rejected"
+              ? `Rejected${claim.rejectionReason ? `: ${claim.rejectionReason}` : ""}`
+              : "Approved",
+          date: claim.reviewedAt ?? null,
+          done: ["Approved", "Rejected", "Paid"].includes(claim.status),
+          isReject: claim.status === "Rejected",
+        },
+        {
+          label: "Payment disbursed",
+          date: claim.paidAt ?? null,
+          done: claim.status === "Paid",
+        },
+      ];
+
   return (
     <div className="space-y-4">
       {events.map((e, i) => (
@@ -1067,6 +1108,9 @@ function Timeline({ claim }: { claim: ClaimResponseDto }) {
             >
               {e.label}
             </div>
+            {e.description && (
+              <div className="text-xs text-muted-foreground mt-0.5">{e.description}</div>
+            )}
             {e.date && (
               <div className="text-xs text-muted-foreground mt-0.5">
                 {formatDate(e.date, { dateStyle: "medium", timeStyle: "short" } as Intl.DateTimeFormatOptions)}
@@ -1077,4 +1121,19 @@ function Timeline({ claim }: { claim: ClaimResponseDto }) {
       ))}
     </div>
   );
+}
+
+function formatTimelineAction(action: string): string {
+  const actionMap: Record<string, string> = {
+    "ClaimSubmitted": "Claim submitted",
+    "ClaimCreated": "Claim submitted",
+    "ClaimReviewed": "Under review",
+    "ClaimApproved": "Approved",
+    "ClaimRejected": "Rejected",
+    "ClaimPaid": "Payment disbursed",
+    "ClaimDeleted": "Claim deleted",
+    "ImageUploaded": "Evidence uploaded",
+    "ImageDeleted": "Evidence removed",
+  };
+  return actionMap[action] ?? action.replace(/([A-Z])/g, " $1").trim();
 }

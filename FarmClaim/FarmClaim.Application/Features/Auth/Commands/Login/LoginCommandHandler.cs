@@ -34,7 +34,6 @@ namespace FarmClaim.Application.Features.Auth.Commands.Login
             _logger.LogInformation("Login attempt: {Email}", request.Request.Email);
 
             var user = await _context.Users
-                .Include(u => u.RefreshToken)
                 .FirstOrDefaultAsync(u => u.Email == request.Request.Email.ToLower().Trim() && !u.IsDeleted, ct);
 
             if (user == null)
@@ -83,12 +82,19 @@ namespace FarmClaim.Application.Features.Auth.Commands.Login
             var refreshTokenValue = _jwtService.GenerateRefreshToken();
             var refreshTokenHash = HashToken(refreshTokenValue);
 
-            if (user.RefreshToken != null)
+            // Revoke any existing active refresh tokens for this user
+            var activeTokens = await _context.RefreshTokens
+                .Where(t => t.UserId == user.Id && !t.IsRevoked)
+                .ToListAsync(ct);
+
+            foreach (var token in activeTokens)
             {
-                user.RefreshToken.IsRevoked = true;
-                user.RefreshToken.RevokedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync(ct);
+                token.IsRevoked = true;
+                token.RevokedAt = DateTime.UtcNow;
             }
+
+            if (activeTokens.Count > 0)
+                await _context.SaveChangesAsync(ct);
 
             var newRefreshTokenEntity = new RefreshTokenEntity
             {

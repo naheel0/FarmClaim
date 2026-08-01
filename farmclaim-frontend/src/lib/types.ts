@@ -30,6 +30,14 @@ export type PaymentStatus =
   | "Refunded"
   | "Expired";
 
+export type InstallmentFrequency = "Monthly" | "Quarterly" | "Annually";
+
+export type PremiumScheduleStatus =
+  | "Pending"
+  | "Paid"
+  | "Overdue"
+  | "Waived";
+
 export type IncidentType =
   | "Flood"
   | "Drought"
@@ -107,6 +115,9 @@ export interface InsurancePlanDto {
   policyDurationMonths: number;
   isActive: boolean;
   createdAt: string;
+  supportsInstallments: boolean;
+  installmentCount: number | null;
+  installmentFrequency: InstallmentFrequency | null;
 }
 
 export interface PolicyResponseDto {
@@ -131,6 +142,10 @@ export interface PolicyResponseDto {
   createdAt: string;
   updatedAt: string | null;
   claimsCount: number;
+  currentInstallmentNumber: number | null;
+  nextInstallmentDueDate: string | null;
+  installmentAmount: number | null;
+  premiumSchedules: PremiumScheduleDto[] | null;
 }
 
 export interface PolicyListDto {
@@ -147,6 +162,26 @@ export interface PolicyListDto {
   rejectionReason: string | null;
   farmName: string | null;
   claimsCount: number;
+}
+
+export interface PremiumScheduleDto {
+  id: string;
+  policyId: string;
+  installmentNumber: number;
+  dueDate: string;
+  amountDue: number;
+  paymentId: string | null;
+  status: PremiumScheduleStatus;
+  paidAt: string | null;
+}
+
+export interface ClaimTimelineEntryDto {
+  timestamp: string;
+  action: string;
+  description: string | null;
+  oldValues: any | null;
+  newValues: any | null;
+  changedColumns: string | null;
 }
 
 export interface ClaimImageDto {

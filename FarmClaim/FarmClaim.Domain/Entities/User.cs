@@ -55,7 +55,7 @@ namespace FarmClaim.Domain.Entities
         [MaxLength(500)]
         public string? StatusChangeReason { get; set; }
         // Navigation Properties
-        public virtual RefreshToken? RefreshToken { get; set; }
+        public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 
         public virtual ICollection<Farm> Farms { get; set; } = new List<Farm>();
 

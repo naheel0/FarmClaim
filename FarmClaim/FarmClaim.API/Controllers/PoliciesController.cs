@@ -92,7 +92,9 @@ namespace FarmClaim.API.Controllers
         {
             try
             {
-                var query = new GetPolicyByIdQuery(policyId, GetUserId());
+                var userId = GetUserId();
+                var role = User.IsInRole("Admin") ? FarmClaim.Domain.Enums.UserRole.Admin : FarmClaim.Domain.Enums.UserRole.Farmer;
+                var query = new GetPolicyByIdQuery(policyId, userId, role);
                 var result = await _mediator.Send(query);
                 return Ok(result);
             }

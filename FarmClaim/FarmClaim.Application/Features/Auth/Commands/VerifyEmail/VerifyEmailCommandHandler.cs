@@ -38,7 +38,7 @@ namespace FarmClaim.Application.Features.Auth.Commands.VerifyEmail
                 .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, ct);
 
             if (user == null)
-                throw new NotFoundException("User not found.");
+                throw new ValidationException(new List<string> { "Invalid email or OTP." });
 
             if (user.Status == UserStatus.Active)
                 throw new ValidationException(new List<string> { "Email is already verified." });

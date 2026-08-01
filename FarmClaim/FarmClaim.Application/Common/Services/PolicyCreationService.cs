@@ -88,14 +88,22 @@ namespace FarmClaim.Application.Common.Services
                 ? GeneratePolicyNumber()
                 : policyNumber.Trim();
 
-            var duplicatePolicy = await _context.InsurancePolicies
-                .AnyAsync(p => p.PolicyNumber == computedPolicyNumber && !p.IsDeleted, ct);
+            // Retry policy number generation on collision (up to 3 attempts)
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                var duplicatePolicy = await _context.InsurancePolicies
+                    .AnyAsync(p => p.PolicyNumber == computedPolicyNumber && !p.IsDeleted, ct);
 
-            if (duplicatePolicy)
-                throw new ValidationException(new List<string>
-                {
-                    $"A policy with number '{computedPolicyNumber}' already exists"
-                });
+                if (!duplicatePolicy) break;
+
+                if (attempt == 2)
+                    throw new ValidationException(new List<string>
+                    {
+                        "Failed to generate a unique policy number after 3 attempts. Please try again."
+                    });
+
+                computedPolicyNumber = GeneratePolicyNumber();
+            }
 
             var existingPolicy = await _context.InsurancePolicies
                 .AnyAsync(p => p.FarmId == farmId

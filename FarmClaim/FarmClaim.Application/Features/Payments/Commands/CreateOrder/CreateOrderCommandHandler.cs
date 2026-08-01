@@ -87,6 +87,39 @@ namespace FarmClaim.Application.Features.Payments.Commands.CreateOrder
                 if (schedule == null)
                     throw new NotFoundException(nameof(PremiumSchedule), cmd.Request.PremiumScheduleId.Value);
 
+                // Guard against multiple Created orders for the same installment
+                var existingScheduleOrder = await _context.Payments
+                    .FirstOrDefaultAsync(p =>
+                        p.PremiumScheduleId == schedule.Id
+                        && (p.Status == PaymentStatus.Created || p.Status == PaymentStatus.Attempted)
+                        && !p.IsDeleted, ct);
+
+                if (existingScheduleOrder != null)
+                {
+                    _logger.LogInformation(
+                        "Reusing existing order {OrderId} for schedule {ScheduleId}",
+                        existingScheduleOrder.OrderId, schedule.Id);
+                    return new CreateOrderResponseDto
+                    {
+                        PaymentId = existingScheduleOrder.Id,
+                        PolicyId = policy.Id,
+                        OrderId = existingScheduleOrder.OrderId,
+                        AmountInPaise = existingScheduleOrder.AmountInPaise,
+                        AmountInRupees = existingScheduleOrder.AmountInRupees,
+                        Currency = existingScheduleOrder.Currency,
+                        RazorpayKeyId = null,
+                        ReceiptNumber = existingScheduleOrder.ReceiptNumber,
+                        ExpiresAt = existingScheduleOrder.CreatedAt.AddMinutes(15),
+                        Status = "Created",
+                        Customer = new CustomerInfo
+                        {
+                            Name = $"{policy.Farm?.User?.FirstName} {policy.Farm?.User?.LastName}",
+                            Email = policy.Farm?.User?.Email ?? "",
+                            Phone = policy.Farm?.User?.PhoneNumber,
+                        },
+                    };
+                }
+
                 amount = schedule.AmountDue;
                 premiumScheduleId = schedule.Id;
 

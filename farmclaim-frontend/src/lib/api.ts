@@ -2,6 +2,7 @@ import type {
   AdminDashboardDto,
   AuditLogDto,
   ClaimResponseDto,
+  ClaimTimelineEntryDto,
   CreateClaimRequestDto,
   CreateFarmRequestDto,
   CreatePlanRequestDto,
@@ -294,6 +295,13 @@ export const policiesApi = {
     ),
   delete: (id: string) =>
     request<void>(`/api/v1/Policies/${id}`, { method: "DELETE" }),
+  renew: (policyId: string, startDate?: string) => {
+    const qs = startDate ? `?startDate=${encodeURIComponent(startDate)}` : "";
+    return request<PolicyResponseDto>(
+      `/api/v1/Policies/${policyId}/renew${qs}`,
+      { method: "POST" }
+    );
+  },
 };
 
 // ---- CLAIMS ----
@@ -347,6 +355,11 @@ export const claimsApi = {
       `/api/v1/Claims/${claimId}/images/${imageId}`,
       { method: "DELETE" }
     ),
+  getTimeline: (claimId: string) =>
+    request<ClaimTimelineEntryDto[]>(
+      `/api/v1/Claims/${claimId}/timeline`,
+      { method: "GET" }
+    ),
 };
 
 // ---- PAYMENTS ----
@@ -388,11 +401,13 @@ export interface RazorpayCheckoutResult {
 }
 
 export const paymentsApi = {
-  createOrder: (policyId: string) =>
-    request<{ orderId: string; amountInRupees: number; currency: string; razorpayKeyId?: string }>(
-      `/api/v1/Payments/create-order/${policyId}`,
+  createOrder: (policyId: string, premiumScheduleId?: string) => {
+    const qs = premiumScheduleId ? `?premiumScheduleId=${premiumScheduleId}` : "";
+    return request<{ orderId: string; amountInRupees: number; currency: string; razorpayKeyId?: string }>(
+      `/api/v1/Payments/create-order/${policyId}${qs}`,
       { method: "POST" }
-    ),
+    );
+  },
   verify: (orderId: string, paymentId: string, signature: string) =>
     request<{ success: boolean }>(
       "/api/v1/Payments/verify",
@@ -406,11 +421,12 @@ export const paymentsApi = {
 
   checkout: async (
     policyId: string,
-    user?: { name?: string; email?: string; phone?: string }
+    user?: { name?: string; email?: string; phone?: string },
+    premiumScheduleId?: string
   ): Promise<RazorpayCheckoutResult> => {
     try {
       const [order, razorpayKey] = await Promise.all([
-        paymentsApi.createOrder(policyId),
+        paymentsApi.createOrder(policyId, premiumScheduleId),
         getRazorpayKeyId(),
       ]);
 
@@ -424,7 +440,7 @@ export const paymentsApi = {
         currency: order.currency,
         order_id: order.orderId,
         name: "FarmClaim",
-        description: "Crop insurance premium",
+        description: premiumScheduleId ? "Crop insurance installment" : "Crop insurance premium",
         image: "/favicon.ico",
         prefill: {
           name: user?.name ?? "",

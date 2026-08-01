@@ -1051,7 +1051,7 @@ function AdminUsersPage() {
       .finally(() => setLoading(false));
   };
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const load = (immediate?: boolean) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -1068,7 +1068,7 @@ function AdminUsersPage() {
   useEffect(() => { load(true); }, [tab]);
   useEffect(() => { load(); }, [search]);
 
-  const debounceRefFarmers = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRefFarmers = useRef<ReturnType<typeof setTimeout>>(null);
 
   const loadFarmers = (p: number, searchTerm: string) => {
     setFarmersLoading(true);

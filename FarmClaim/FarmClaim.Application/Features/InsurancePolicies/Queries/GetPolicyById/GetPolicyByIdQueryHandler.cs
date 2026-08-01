@@ -2,6 +2,7 @@
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.InsurancePolicies.DTOs;
 using FarmClaim.Domain.Entities;
+using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -25,14 +26,16 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Queries.GetPolicyById
         {
             _logger.LogInformation("Getting policy {PolicyId} for user {UserId}", request.PolicyId, request.UserId);
 
-            // FIXED: Now checks ownership through farm
+            // FIXED: Admins can view any policy, farmers can only view their own
+            var isAdmin = request.Role == UserRole.Admin;
+
             var policy = await _context.InsurancePolicies
                 .AsNoTracking()
                 .Include(p => p.Farm)
                 .Include(p => p.Claims)
                 .Include(p => p.PremiumSchedules)
                 .FirstOrDefaultAsync(p => p.Id == request.PolicyId
-                    && p.Farm!.UserId == request.UserId // FIXED: Ownership check added
+                    && (isAdmin || p.Farm!.UserId == request.UserId)
                     && !p.IsDeleted, ct);
 
             if (policy == null)

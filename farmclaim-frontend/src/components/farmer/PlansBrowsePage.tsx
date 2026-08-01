@@ -210,6 +210,14 @@ function PlanBrowseCard({
             <span className="text-muted-foreground">Duration</span>
             <span className="font-medium">{plan.policyDurationMonths} months</span>
           </div>
+          {plan.supportsInstallments && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Installments</span>
+              <span className="font-medium text-emerald-700">
+                {plan.installmentCount}× {plan.installmentFrequency}
+              </span>
+            </div>
+          )}
         </div>
         <Button
           onClick={(e) => { e.stopPropagation(); onBuy(); }}
@@ -288,6 +296,14 @@ function PlanDetailDialog({
                     </Badge>
                   </div>
                 </div>
+                {plan.supportsInstallments && (
+                  <div className="col-span-2">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide">Installment plan</div>
+                    <div className="font-medium mt-1 text-emerald-700">
+                      {plan.installmentCount} payments of {formatINR(plan.premiumRatePerHectare / (plan.installmentCount ?? 1))}/ha · {plan.installmentFrequency}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2 mt-6 pt-4 border-t">
@@ -454,6 +470,12 @@ function BuyPlanDialog({
                   <span className="text-muted-foreground">Duration</span>
                   <span>{plan.policyDurationMonths} months</span>
                 </div>
+                {plan.supportsInstallments && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span className="font-medium">Installment plan available</span>
+                    <span className="font-medium">{plan.installmentCount}× {plan.installmentFrequency}</span>
+                  </div>
+                )}
                 {payStep !== "idle" && (
                   <div className="mt-2 pt-2 border-t border-emerald-200 flex items-center gap-2 text-xs text-emerald-900">
                     {payStep === "done" ? (

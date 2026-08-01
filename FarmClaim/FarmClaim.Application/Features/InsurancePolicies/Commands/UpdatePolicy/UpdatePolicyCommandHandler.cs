@@ -2,6 +2,7 @@
 using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.InsurancePolicies.DTOs;
 using FarmClaim.Domain.Entities;
+using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -37,6 +38,13 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.UpdatePolicy
                 _logger.LogWarning("Policy not found: {PolicyId} or not owned by user: {UserId}", command.PolicyId, command.UserId);
                 throw new NotFoundException(nameof(InsurancePolicy), command.PolicyId);
             }
+
+            // Only allow updates on Pending policies
+            if (policy.Status != PolicyStatus.Pending)
+                throw new ValidationException(new List<string>
+                {
+                    $"Cannot update policy with status '{policy.Status}'. Only pending policies can be edited."
+                });
 
             bool hasChanges = false;
 
@@ -76,6 +84,13 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.UpdatePolicy
 
             if (command.Request.EndDate.HasValue)
             {
+                // Validate EndDate is after StartDate
+                if (command.Request.EndDate.Value <= policy.StartDate)
+                    throw new ValidationException(new List<string>
+                    {
+                        "End date must be after start date."
+                    });
+
                 policy.EndDate = command.Request.EndDate.Value;
                 hasChanges = true;
             }

@@ -49,7 +49,7 @@ namespace FarmClaim.Infrastructure.Jobs
 
             var policiesToExpire = await _context.InsurancePolicies
                 .Where(p => !p.IsDeleted
-                            && p.Status == PolicyStatus.Active
+                            && (p.Status == PolicyStatus.Active || p.Status == PolicyStatus.PaymentReceived)
                             && p.EndDate <= now)
                 .ToListAsync();
 

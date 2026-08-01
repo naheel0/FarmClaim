@@ -102,6 +102,34 @@ namespace FarmClaim.Application.Features.Admin.Commands.CancelPolicy
             policy.RejectionReason = $"Cancelled by admin: {request.Reason}";
             policy.UpdatedAt = DateTime.UtcNow;
 
+            // Waive all pending PremiumSchedules
+            var pendingSchedules = await _context.PremiumSchedules
+                .Where(s => s.PolicyId == policy.Id
+                    && !s.IsDeleted
+                    && s.Status == PremiumScheduleStatus.Pending)
+                .ToListAsync(ct);
+
+            foreach (var schedule in pendingSchedules)
+            {
+                schedule.Status = PremiumScheduleStatus.Waived;
+                schedule.UpdatedAt = DateTime.UtcNow;
+            }
+
+            // Auto-cancel any Pending claims on this policy
+            var pendingClaims = await _context.Claims
+                .Where(c => c.PolicyId == policy.Id
+                    && !c.IsDeleted
+                    && c.Status == ClaimStatus.Pending)
+                .ToListAsync(ct);
+
+            foreach (var claim in pendingClaims)
+            {
+                claim.Status = ClaimStatus.Rejected;
+                claim.RejectionReason = "Auto-rejected: Policy was cancelled";
+                claim.ReviewedAt = DateTime.UtcNow;
+                claim.UpdatedAt = DateTime.UtcNow;
+            }
+
             await _context.SaveChangesAsync(ct);
 
             await _auditService.LogActionAsync(
