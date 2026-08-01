@@ -72,6 +72,9 @@ namespace FarmClaim.Domain.Entities
         [Column(TypeName = "nvarchar(max)")]
         public string? AIAnalysisResult { get; set; }
 
+        // Tracks when AI analysis was last completed — used to prevent redundant analysis on new image uploads
+        public DateTime? AIAnalysisUpdatedAt { get; set; }
+
         public virtual ICollection<ClaimImage> Images { get; set; } = new List<ClaimImage>();
     }
 }

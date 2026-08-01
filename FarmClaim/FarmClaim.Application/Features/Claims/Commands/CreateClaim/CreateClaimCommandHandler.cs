@@ -154,7 +154,9 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
             _logger.LogInformation("Claim created: {ClaimId} for Policy: {PolicyId}",
                 claim.Id, claim.PolicyId);
 
-            // Enqueue AI analysis as a background job (non-blocking)
+            // Enqueue background jobs for weather and AI analysis
+            _backgroundJobService.EnqueueWeatherAnalysis(claim.Id);
+
             if (initialImageUrls.Count > 0)
             {
                 _backgroundJobService.EnqueueAIAnalysis(claim.Id);

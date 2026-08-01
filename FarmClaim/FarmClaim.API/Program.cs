@@ -204,9 +204,10 @@ builder.Services.AddHangfire(config => config
         new Hangfire.SqlServer.SqlServerStorageOptions
         {
             CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
-            SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+            SlidingInvisibilityTimeout = TimeSpan.FromMinutes(10),   // H5: increase for long Gemini jobs
             QueuePollInterval = TimeSpan.FromSeconds(15),
-            UseRecommendedIsolationLevel = true
+            UseRecommendedIsolationLevel = true,
+            SchemaName = "hangfire"  // M1: isolate Hangfire tables in their own schema
         }));
 
 builder.Services.AddHangfireServer();
@@ -473,6 +474,11 @@ RecurringJob.AddOrUpdate<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>(
     "cancel-stale-policies-weekly",
     job => job.CancelStalePendingPoliciesAsync(),
     Cron.Weekly(DayOfWeek.Sunday, 3, 0));
+
+RecurringJob.AddOrUpdate<FarmClaim.Infrastructure.Jobs.MaintenanceJobs>(
+    "cancel-overdue-installments-daily",
+    job => job.CancelOverdueInstallmentPoliciesAsync(),
+    Cron.Daily(4, 0));
 
 Console.WriteLine("Recurring jobs scheduled: expire-policies, cleanup-tokens, expiry-reminder, cancel-stale-policies");
 

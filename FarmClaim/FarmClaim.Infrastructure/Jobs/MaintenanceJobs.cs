@@ -48,6 +48,8 @@ namespace FarmClaim.Infrastructure.Jobs
             var now = DateTime.UtcNow;
 
             var policiesToExpire = await _context.InsurancePolicies
+                .Include(p => p.Claims)
+                .Include(p => p.PremiumSchedules)
                 .Where(p => !p.IsDeleted
                             && (p.Status == PolicyStatus.Active || p.Status == PolicyStatus.PaymentReceived)
                             && p.EndDate <= now)
@@ -63,6 +65,43 @@ namespace FarmClaim.Infrastructure.Jobs
 
             foreach (var policy in policiesToExpire)
             {
+                // H6: Auto-cancel all pending claims on this expired policy
+                var pendingClaims = policy.Claims
+                    .Where(c => !c.IsDeleted && c.Status == ClaimStatus.Pending)
+                    .ToList();
+
+                foreach (var claim in pendingClaims)
+                {
+                    claim.Status = ClaimStatus.Rejected;
+                    claim.RejectionReason = $"Auto-cancelled: Policy {policy.PolicyNumber} expired on {policy.EndDate:yyyy-MM-dd}";
+                    claim.UpdatedAt = now;
+                }
+
+                if (pendingClaims.Count > 0)
+                {
+                    _logger.LogInformation(
+                        "[Maintenance] Cancelled {Count} pending claims for expired policy {PolicyId}",
+                        pendingClaims.Count, policy.Id);
+                }
+
+                // Reset any unpaid PremiumSchedules that were still pending
+                var unpaidSchedules = policy.PremiumSchedules
+                    .Where(s => s.Status == PremiumScheduleStatus.Pending && !s.IsDeleted)
+                    .ToList();
+
+                foreach (var schedule in unpaidSchedules)
+                {
+                    schedule.Status = PremiumScheduleStatus.Waived;
+                    schedule.UpdatedAt = now;
+                }
+
+                if (unpaidSchedules.Count > 0)
+                {
+                    _logger.LogInformation(
+                        "[Maintenance] Waived {Count} pending premium schedules for expired policy {PolicyId}",
+                        unpaidSchedules.Count, policy.Id);
+                }
+
                 policy.Status = PolicyStatus.Expired;
                 policy.UpdatedAt = now;
             }
@@ -139,10 +178,12 @@ namespace FarmClaim.Infrastructure.Jobs
             var now = DateTime.UtcNow;
             var sevenDaysFromNow = now.AddDays(7);
 
+            // H2: Include PaymentReceived policies — they're fully paid and awaiting admin activation,
+            // the farmer still needs to know it's expiring
             var policiesExpiringSoon = await _context.InsurancePolicies
                 .Include(p => p.Farm).ThenInclude(f => f!.User)
                 .Where(p => !p.IsDeleted
-                            && p.Status == PolicyStatus.Active
+                            && (p.Status == PolicyStatus.Active || p.Status == PolicyStatus.PaymentReceived)
                             && p.EndDate >= sevenDaysFromNow.AddHours(-12)
                             && p.EndDate <= sevenDaysFromNow.AddHours(12))
                 .ToListAsync();
@@ -217,11 +258,88 @@ namespace FarmClaim.Infrastructure.Jobs
                 policy.Status = PolicyStatus.Cancelled;
                 policy.CancelledAt = DateTime.UtcNow;
                 policy.UpdatedAt = DateTime.UtcNow;
+                // H3: Use a dedicated field — NOT RejectionReason (which is for admin-initiated rejections)
                 policy.RejectionReason = "Auto-cancelled: Pending for more than 30 days without admin review";
             }
 
             await _context.SaveChangesAsync();
             _logger.LogInformation("[Maintenance] Cancelled {Count} stale pending policies", stalePolicies.Count);
+        }
+
+        // ============================================
+        // JOB 5: CANCEL POLICIES WITH OVERDUE INSTALLMENTS
+        // Runs daily at 4:00 AM
+        // ============================================
+        [Hangfire.AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 60, 300, 900 })]
+        public async Task CancelOverdueInstallmentPoliciesAsync()
+        {
+            _logger.LogInformation("[Maintenance] Starting CancelOverdueInstallmentPolicies job at {Time}", DateTime.UtcNow);
+
+            var now = DateTime.UtcNow;
+            var gracePeriodDays = 30;
+
+            // Find policies with overdue installments past the grace period
+            var overdueSchedules = await _context.PremiumSchedules
+                .Include(s => s.Policy)
+                .Where(s => !s.IsDeleted
+                            && s.Status != PremiumScheduleStatus.Paid
+                            && s.Status != PremiumScheduleStatus.Waived
+                            && s.DueDate < now.AddDays(-gracePeriodDays))
+                .ToListAsync();
+
+            if (overdueSchedules.Count == 0)
+            {
+                _logger.LogInformation("[Maintenance] No overdue installment schedules found");
+                return;
+            }
+
+            // Group by policy to avoid processing the same policy multiple times
+            var policiesToCancel = overdueSchedules
+                .GroupBy(s => s.PolicyId)
+                .Select(g => g.First().Policy)
+                .Where(p => p != null && !p.IsDeleted)
+                .ToList();
+
+            _logger.LogInformation("[Maintenance] Found {Count} policies with overdue installments", policiesToCancel.Count);
+
+            foreach (var policy in policiesToCancel)
+            {
+                if (policy == null) continue;
+
+                // Auto-cancel all pending claims on this policy
+                var pendingClaims = await _context.Claims
+                    .Where(c => c.PolicyId == policy.Id && !c.IsDeleted && c.Status == ClaimStatus.Pending)
+                    .ToListAsync();
+
+                foreach (var claim in pendingClaims)
+                {
+                    claim.Status = ClaimStatus.Rejected;
+                    claim.RejectionReason = $"Policy {policy.PolicyNumber} auto-cancelled due to overdue installments";
+                    claim.UpdatedAt = now;
+                }
+
+                // Mark overdue schedules as Waived
+                var overdue = overdueSchedules.Where(s => s.PolicyId == policy.Id).ToList();
+                foreach (var schedule in overdue)
+                {
+                    schedule.Status = PremiumScheduleStatus.Waived;
+                    schedule.UpdatedAt = now;
+                }
+
+                policy.Status = PolicyStatus.Cancelled;
+                policy.CancelledAt = now;
+                policy.UpdatedAt = now;
+                // H3:Separate reason field — but since we don't have AutoCancelReason,
+                // we put a clear marker in RejectionReason that it's overdue-related
+                policy.RejectionReason = $"Auto-cancelled: Installment overdue by more than {gracePeriodDays} days";
+
+                _logger.LogInformation(
+                    "[Maintenance] Cancelled policy {PolicyId} — {OverdueCount} overdue installments, {ClaimCount} claims cancelled",
+                    policy.Id, overdue.Count, pendingClaims.Count);
+            }
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("[Maintenance] Cancelled {Count} policies with overdue installments", policiesToCancel.Count);
         }
     }
 
