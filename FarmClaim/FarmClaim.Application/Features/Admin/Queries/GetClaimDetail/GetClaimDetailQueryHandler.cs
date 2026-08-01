@@ -44,22 +44,37 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetClaimDetail
                 try
                 {
                     var aiData = JsonDocument.Parse(claim.AIAnalysisResult).RootElement;
-                    aiDamage = aiData.TryGetProperty("damagePercentage", out var dp) ? dp.GetDouble() : null;
-                    aiDamageDescription = aiData.TryGetProperty("damageDescription", out var dd) ? dd.GetString() : null;
-                    aiConfidence = aiData.TryGetProperty("confidence", out var cf) ? cf.GetString() : null;
 
-                    if (aiDamage.HasValue && claim.Policy != null)
+                    // Skip if result contains an error (e.g. "AI analysis unavailable")
+                    if (aiData.TryGetProperty("error", out _))
                     {
-                        var percentage = (decimal)(aiDamage.Value / 100.0);
-                        suggestedPayout = Math.Round(claim.Policy.SumInsured * percentage, 2);
+                        _logger.LogInformation("Claim {ClaimId} has AI error result, skipping", claim.Id);
+                    }
+                    else
+                    {
+                        aiDamage = aiData.TryGetProperty("damagePercentage", out var dp) ? dp.GetDouble() : null;
+                        aiDamageDescription = aiData.TryGetProperty("damageDescription", out var dd) ? dd.GetString() : null;
+                        aiConfidence = aiData.TryGetProperty("confidence", out var cf) ? cf.GetString() : null;
 
-                        aiRecommendation = aiDamage.Value switch
+                        if (aiDamage.HasValue && claim.Policy != null)
                         {
-                            >= 50 => "Approve - Severe damage confirmed by AI",
-                            >= 30 => "Approve - Moderate damage confirmed by AI",
-                            >= 10 => "Review - Minor damage, verify manually",
-                            _ => "Reject - Insufficient damage detected"
-                        };
+                            // H4: use CoverageAmount (already factors in CoveragePercentage and area)
+                            // SuggestedPayout = CoverageAmount × (damagePercentage / 100)
+                            var damageFraction = (decimal)(aiDamage.Value / 100.0);
+                            suggestedPayout = Math.Round(claim.Policy.CoverageAmount * damageFraction, 2);
+
+                            // M1: factor confidence — "Low" confidence downgrades recommendation
+                            var confidence = aiConfidence ?? "Low";
+                            aiRecommendation = (aiDamage.Value, confidence) switch
+                            {
+                                (>= 50, "High") => "Approve - Severe damage confirmed by AI (high confidence)",
+                                (>= 50, _)    => "Review - Severe damage indicated (low confidence, verify)",
+                                (>= 30, "High") => "Approve - Moderate damage confirmed by AI (high confidence)",
+                                (>= 30, _)    => "Review - Moderate damage indicated (low confidence, verify)",
+                                (>= 10, _)    => "Review - Minor damage, verify manually",
+                                _             => "Reject - Insufficient damage detected"
+                            };
+                        }
                     }
                 }
                 catch (Exception ex)

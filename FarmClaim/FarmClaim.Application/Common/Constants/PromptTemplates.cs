@@ -3,7 +3,7 @@
     public static class PromptTemplates
     {
         public const string CropDamageAnalysis =
-            @"You are an expert agricultural damage assessor. Analyze the provided crop damage images for a {CropType} farm.
+            @"You are an expert agricultural damage assessor. Analyze the provided crop damage images for a {CropType} farm. If multiple images are provided, analyze them together and give ONE overall assessment considering all images.
 
 Your task:
 1. Estimate the overall crop damage percentage (0-100%)

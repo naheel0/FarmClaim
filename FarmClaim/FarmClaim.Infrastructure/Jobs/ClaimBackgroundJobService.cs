@@ -98,13 +98,13 @@ namespace FarmClaim.Infrastructure.Jobs
         // AI ANALYSIS
         // ============================================
         [Hangfire.AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 30, 120, 300 })]
-        public async Task ProcessAIAnalysisAsync(Guid claimId, List<string> imageUrls, string cropType)
+        public async Task ProcessAIAnalysisAsync(Guid claimId)
         {
-            _logger.LogInformation("Hangfire: Starting AI analysis for claim {ClaimId} with {Count} images",
-                claimId, imageUrls.Count);
+            _logger.LogInformation("Hangfire: Starting AI analysis for claim {ClaimId}", claimId);
 
             var claim = await _context.Claims
                 .Include(c => c.Images)
+                .Include(c => c.Policy)
                 .FirstOrDefaultAsync(c => c.Id == claimId && !c.IsDeleted);
 
             if (claim == null)
@@ -113,17 +113,19 @@ namespace FarmClaim.Infrastructure.Jobs
                 return;
             }
 
-            if (claim.AIAnalysisResult != null)
-            {
-                _logger.LogInformation("Hangfire: Claim {ClaimId} already has AI analysis, skipping", claimId);
-                return;
-            }
+            var imageUrls = claim.Images
+                .Where(i => !i.IsDeleted)
+                .OrderBy(i => i.DisplayOrder)
+                .Select(i => i.ImageUrl)
+                .ToList();
 
             if (imageUrls.Count == 0)
             {
                 _logger.LogInformation("Hangfire: No images for claim {ClaimId}, skipping AI", claimId);
                 return;
             }
+
+            var cropType = claim.Policy?.CropType ?? claim.Farm?.CropType ?? "unknown";
 
             try
             {

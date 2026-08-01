@@ -19,10 +19,10 @@ namespace FarmClaim.Infrastructure.Services
                 x => x.ProcessWeatherAnalysisAsync(claimId));
         }
 
-        public void EnqueueAIAnalysis(Guid claimId, List<string> imageUrls, string cropType)
+        public void EnqueueAIAnalysis(Guid claimId)
         {
             _backgroundJobClient.Enqueue<ClaimBackgroundJobService>(
-                x => x.ProcessAIAnalysisAsync(claimId, imageUrls, cropType));
+                x => x.ProcessAIAnalysisAsync(claimId));
         }
     }
 }

@@ -94,8 +94,9 @@ namespace FarmClaim.Application.Features.Claims.Commands.UploadClaimImages
 
             if (imageUrls.Count > 0)
             {
-                var cropTypeForJob = request.CropType ?? claim.Policy?.Farm?.CropType ?? "unknown";
-                _backgroundJobService.EnqueueAIAnalysis(request.ClaimId, imageUrls, cropTypeForJob);
+                // Always re-run AI analysis so newly uploaded images are included
+                // The background job fetches ALL claim images from DB, so pass claimId only
+                _backgroundJobService.EnqueueAIAnalysis(request.ClaimId);
             }
 
             return uploadedImages;

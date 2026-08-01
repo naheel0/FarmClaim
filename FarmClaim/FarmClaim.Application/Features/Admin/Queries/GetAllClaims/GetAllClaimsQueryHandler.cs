@@ -87,7 +87,9 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetAllClaims
                     Status = c.Status,
                     ApprovedAmount = c.ApprovedAmount,
                     ImageCount = c.Images.Count(i => !i.IsDeleted),
-                    HasAIAnalysis = c.AIAnalysisResult != null,
+                        // Exclude error fallback JSON from "has real AI analysis" check
+                        HasAIAnalysis = !string.IsNullOrEmpty(c.AIAnalysisResult)
+                            && !c.AIAnalysisResult.Contains("\"error\""),
                     HasWeatherData = c.WeatherSnapshot != null,
                     CreatedAt = c.CreatedAt
                 }).ToListAsync(ct);

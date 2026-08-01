@@ -11,7 +11,7 @@ namespace FarmClaim.Application.Common.Interfaces
 
     public class AIAnalysisResult
     {
-        public double DamagePercentage { get; set; }
+        public double? DamagePercentage { get; set; }
         public string DamageDescription { get; set; } = string.Empty;
         public string Confidence { get; set; } = string.Empty;
         public string RawResponse { get; set; } = string.Empty;

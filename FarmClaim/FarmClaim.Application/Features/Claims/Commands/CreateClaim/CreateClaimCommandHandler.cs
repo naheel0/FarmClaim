@@ -14,18 +14,18 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
     {
         private readonly IApplicationDbContext _context;
         private readonly IWeatherService _weatherService;
-        private readonly IGeminiVisionService _geminiService;
+        private readonly IClaimBackgroundJobService _backgroundJobService;
         private readonly ILogger<CreateClaimCommandHandler> _logger;
 
         public CreateClaimCommandHandler(
             IApplicationDbContext context,
             IWeatherService weatherService,
-            IGeminiVisionService geminiService,
+            IClaimBackgroundJobService backgroundJobService,
             ILogger<CreateClaimCommandHandler> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _weatherService = weatherService ?? throw new ArgumentNullException(nameof(weatherService));
-            _geminiService = geminiService ?? throw new ArgumentNullException(nameof(geminiService));
+            _backgroundJobService = backgroundJobService ?? throw new ArgumentNullException(nameof(backgroundJobService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -130,32 +130,22 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
                 });
             }
 
-            // Gemini Vision (your existing code — unchanged)
-            try
+            // Store image URLs as ClaimImage entities so the background job can fetch them
+            var initialImageUrls = command.Request.ImageUrls ?? new List<string>();
+            if (initialImageUrls.Count > 0)
             {
-                var imageUrls = command.Request.ImageUrls ?? new List<string>();
-                if (imageUrls.Count > 0)
+                for (int i = 0; i < initialImageUrls.Count; i++)
                 {
-                    var analysis = await _geminiService.AnalyzeImagesAsync(imageUrls, policy.CropType, ct);
-
-                    claim.AIAnalysisResult = JsonSerializer.Serialize(analysis,
-                        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-
-                    _logger.LogInformation("AI analysis saved: {Damage}%", analysis.DamagePercentage);
+                    var claimImage = new ClaimImage
+                    {
+                        Id = Guid.NewGuid(),
+                        ClaimId = claim.Id,
+                        ImageUrl = initialImageUrls[i],
+                        DisplayOrder = i,
+                        IsPrimary = i == 0
+                    };
+                    claim.Images.Add(claimImage);
                 }
-                else
-                {
-                    _logger.LogInformation("No images provided, skipping AI analysis");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Gemini Vision failed, continuing without AI analysis");
-                claim.AIAnalysisResult = JsonSerializer.Serialize(new
-                {
-                    error = "AI analysis unavailable",
-                    message = ex.Message
-                });
             }
 
             await _context.Claims.AddAsync(claim, ct);
@@ -163,6 +153,13 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
 
             _logger.LogInformation("Claim created: {ClaimId} for Policy: {PolicyId}",
                 claim.Id, claim.PolicyId);
+
+            // Enqueue AI analysis as a background job (non-blocking)
+            if (initialImageUrls.Count > 0)
+            {
+                _backgroundJobService.EnqueueAIAnalysis(claim.Id);
+                _logger.LogInformation("AI analysis enqueued for claim {ClaimId}", claim.Id);
+            }
 
             return new ClaimResponseDto
             {

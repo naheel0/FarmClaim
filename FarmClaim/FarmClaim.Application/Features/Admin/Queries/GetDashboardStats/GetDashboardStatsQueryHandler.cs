@@ -42,7 +42,8 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetDashboardStats
             var claimsWithImages = await _context.ClaimImages.AsNoTracking()
                 .CountAsync(i => !i.IsDeleted && _context.Claims.Any(c => c.Id == i.ClaimId && !c.IsDeleted), ct);
             var claimsWithAIAnalysis = await _context.Claims.AsNoTracking()
-                .CountAsync(c => !c.IsDeleted && c.AIAnalysisResult != null, ct);
+                .CountAsync(c => !c.IsDeleted && c.AIAnalysisResult != null
+                    && !c.AIAnalysisResult.Contains("\"error\""), ct);
             var claimsWithWeatherData = await _context.Claims.AsNoTracking()
                 .CountAsync(c => !c.IsDeleted && c.WeatherSnapshot != null, ct);
 
