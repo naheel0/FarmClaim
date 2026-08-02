@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import {
   Leaf,
@@ -18,8 +18,6 @@ import {
   Star,
   Quote,
   ChevronDown,
-  BarChart3,
-  Users,
   Award,
   Camera,
 } from "lucide-react";
@@ -27,7 +25,7 @@ import { useApp } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatINR, formatNumber } from "@/lib/utils";
+import { cn, formatINR } from "@/lib/utils";
 import { Navbar } from "@/components/layout/Navbar";
 
 // Curated real Unsplash farm/agriculture photos
@@ -119,10 +117,10 @@ const steps = [
 ];
 
 const stats = [
-  { value: "12,400+", label: "Farmers protected", icon: Users },
-  { value: "₹48 Cr+", label: "Premium collected", icon: Wallet },
-  { value: "₹12.8 Cr", label: "Claims paid out", icon: TrendingUp },
-  { value: "<24 hrs", label: "Avg payout time", icon: Clock },
+  { value: "24 hrs", label: "Claim payout target", icon: Clock },
+  { value: "AI", label: "Satellite-verified claims", icon: Brain },
+  { value: "100%", label: "Paperless process", icon: CheckCircle2 },
+  { value: "IMD", label: "Live weather data", icon: CloudRain },
 ];
 
 const plans = [
@@ -168,7 +166,7 @@ const testimonials = [
     quote:
       "When floods hit my paddy in August, I filed a claim from my phone at 8pm. By 4pm next day, ₹1.97 lakh was in my account. I didn't believe it was real.",
     crop: "Paddy Farmer",
-    img: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80",
+    img: "https://images.unsplash.com/photo-1595152772835-219674b2a8a6?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80",
   },
   {
     name: "Lakshmi Reddy",
@@ -176,7 +174,7 @@ const testimonials = [
     quote:
       "The satellite imagery caught pest damage I hadn't even noticed yet. FarmClaim proactively reached out and walked me through filing a claim. Felt like the future.",
     crop: "Cotton Farmer",
-    img: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80",
+    img: "https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80",
   },
   {
     name: "Bharat Yadav",
@@ -184,7 +182,7 @@ const testimonials = [
     quote:
       "Last year's hailstorm destroyed my wheat. The old insurer took 3 months to send an agent who offered me ₹4,000. With FarmClaim, the AI approved ₹38,500 in 19 hours.",
     crop: "Wheat Farmer",
-    img: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80",
+    img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80",
   },
 ];
 
@@ -203,7 +201,7 @@ const faqs = [
   },
   {
     q: "How fast is the payout really?",
-    a: "If your claim is approved (most straightforward weather claims are), the amount is disbursed via Razorpay to your linked bank account within 24 hours. Average time across all paid claims in 2024: 19.4 hours.",
+    a: "If your claim is approved (most straightforward weather claims are), the amount is disbursed via Razorpay to your linked bank account within 24 hours. Fast, direct, and trackable in your dashboard.",
   },
   {
     q: "Is my land data safe?",
@@ -260,7 +258,7 @@ export function LandingPage() {
                 className="mb-6 bg-white/10 backdrop-blur-md border-white/20 text-white gap-2 px-3 py-1.5"
               >
                 <span className="h-2 w-2 rounded-full bg-emerald-400 pulse-ring" />
-                Trusted by 12,400+ farmers across 6 states
+                Trusted by farmers across 6 states
               </Badge>
             </motion.div>
 
@@ -426,7 +424,7 @@ export function LandingPage() {
                 <span className="gradient-text">every season.</span>
               </>
             }
-            subtitle="Transparent premiums, instant issuance, no hidden clauses. Browse our most popular plans below — sign up to see all 14 options."
+            subtitle="Transparent premiums, instant issuance, no hidden clauses. Browse our most popular plans below — sign up to see all available options."
           />
 
           <div className="mt-16 grid lg:grid-cols-3 gap-6">
@@ -442,7 +440,7 @@ export function LandingPage() {
               onClick={() => navigate("/signup")}
               className="border-emerald-700 text-emerald-700 hover:bg-emerald-50 gap-2"
             >
-              View all 14 plans
+              View all plans
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -476,12 +474,12 @@ export function LandingPage() {
                     Satellite NDVI
                   </span>
                 </div>
-                <div className="text-3xl font-bold text-emerald-900">34.8%</div>
+                <div className="text-3xl font-bold text-emerald-900">NDVI</div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  Damage area confirmed
+                  Damage area analysis
                 </div>
                 <div className="mt-3 h-1.5 bg-emerald-100 rounded-full overflow-hidden">
-                  <div className="h-full w-[35%] bg-gradient-to-r from-emerald-500 to-rose-500 rounded-full" />
+                  <div className="h-full w-[65%] bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full" />
                 </div>
               </motion.div>
 
@@ -605,7 +603,7 @@ export function LandingPage() {
                 Your harvest deserves a safety net built for this century.
               </h2>
               <p className="mt-4 text-emerald-100/80 text-lg">
-                Join 12,400+ farmers who get paid in hours, not months. Free to
+                Join farmers who get paid in hours, not months. Free to
                 sign up. No card required to browse plans.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-3">
@@ -940,7 +938,7 @@ function Footer() {
   return (
     <footer className="bg-emerald-950 text-emerald-100/70 pt-16 pb-8 mt-auto">
       <div className="container mx-auto px-4">
-        <div className="grid lg:grid-cols-5 gap-10 pb-10">
+        <div className="grid lg:grid-cols-4 gap-10 pb-10">
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2.5 mb-4">
               <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 grid place-items-center">
@@ -957,37 +955,49 @@ function Footer() {
             </p>
             <div className="flex gap-3 mt-5">
               <Badge variant="outline" className="bg-emerald-900/50 text-emerald-200 border-emerald-700">
-                IRDAI Certified
+                Farmer-first
               </Badge>
               <Badge variant="outline" className="bg-emerald-900/50 text-emerald-200 border-emerald-700">
-                ISO 27001
+                AI-powered
               </Badge>
             </div>
           </div>
           {[
             {
               title: "Product",
-              links: ["Features", "Insurance Plans", "Pricing", "AI Explained"],
+              links: [
+                { label: "Features", href: "#features" },
+                { label: "Insurance Plans", href: "#plans" },
+                { label: "How it works", href: "#how" },
+                { label: "FAQ", href: "#faq" },
+              ],
             },
             {
-              title: "Company",
-              links: ["About us", "Careers", "Press kit", "Contact"],
-            },
-            {
-              title: "Resources",
-              links: ["Farmer guide", "API docs", "Claim FAQ", "Status"],
+              title: "Account",
+              links: [
+                { label: "Sign up", href: "/signup" },
+                { label: "Sign in", href: "/login" },
+              ],
             },
           ].map((col) => (
             <div key={col.title}>
               <h4 className="text-white font-semibold mb-4 text-sm">{col.title}</h4>
               <ul className="space-y-2.5">
                 {col.links.map((link) => (
-                  <li key={link}>
+                  <li key={link.label}>
                     <button
-                      onClick={() => navigate("/login")}
+                      onClick={() => {
+                        if (link.href.startsWith("#")) {
+                          document
+                            .querySelector(link.href)
+                            ?.scrollIntoView({ behavior: "smooth" });
+                        } else {
+                          navigate(link.href);
+                        }
+                      }}
                       className="text-sm hover:text-white transition-colors text-left"
                     >
-                      {link}
+                      {link.label}
                     </button>
                   </li>
                 ))}
@@ -995,13 +1005,8 @@ function Footer() {
             </div>
           ))}
         </div>
-        <div className="border-t border-emerald-800 pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs">
+        <div className="border-t border-emerald-800 pt-6 text-xs">
           <div>© {new Date().getFullYear()} FarmClaim Insurance Technologies Pvt. Ltd.</div>
-          <div className="flex gap-5">
-            <button className="hover:text-white">Privacy</button>
-            <button className="hover:text-white">Terms</button>
-            <button className="hover:text-white">Grievance</button>
-          </div>
         </div>
       </div>
     </footer>
