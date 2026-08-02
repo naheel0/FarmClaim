@@ -31,6 +31,9 @@ export const metadata: Metadata = {
     "FarmClaim",
   ],
   authors: [{ name: "FarmClaim" }],
+  icons: {
+    icon: "/favicon.svg",
+  },
   openGraph: {
     title: "FarmClaim — AI-Powered Crop Insurance",
     description:
