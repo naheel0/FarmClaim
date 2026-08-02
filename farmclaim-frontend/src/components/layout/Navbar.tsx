@@ -10,14 +10,23 @@ import {
   SheetTitle,
   SheetHeader,
 } from "@/components/ui/sheet";
-import { Leaf, Menu, LogOut, LayoutDashboard, Shield } from "lucide-react";
+import { Leaf, Menu, LogOut, LayoutDashboard, Shield, ArrowRight, ChevronDown, User } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
   { href: "#features", label: "Features" },
   { href: "#how", label: "How it works" },
   { href: "#plans", label: "Insurance Plans" },
-  { href: "#testimonials", label: "Farmers" },
+  { href: "#testimonials", label: "Testimonials" },
   { href: "#faq", label: "FAQ" },
 ];
 
@@ -82,25 +91,50 @@ export function Navbar() {
 
           <div className="hidden lg:flex items-center gap-2">
             {user ? (
-              <>
-                <Button
-                  variant="ghost"
-                  onClick={() =>
-                    navigate(user.role === "Admin" ? "/admin" : "/dashboard")
-                  }
-                  className="gap-2"
-                >
-                  {user.role === "Admin" ? (
-                    <Shield className="h-4 w-4" />
-                  ) : (
-                    <LayoutDashboard className="h-4 w-4" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-2 pl-1.5 pr-2 rounded-full hover:bg-foreground/5"
+                  >
+                    <Avatar className="h-7 w-7 bg-gradient-to-br from-emerald-500 to-green-700 text-white">
+                      <AvatarFallback className="bg-transparent text-white text-[10px] font-bold">
+                        {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium hidden sm:inline">
+                      {user.firstName}
+                    </span>
+                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="text-sm font-semibold">{user.firstName} {user.lastName}</div>
+                    <div className="text-xs text-muted-foreground">{user.email}</div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate(user.role === "Admin" ? "/admin" : "/dashboard")}>
+                    {user.role === "Admin" ? (
+                      <Shield className="h-4 w-4 mr-2" />
+                    ) : (
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                    )}
+                    {user.role === "Admin" ? "Admin Console" : "Dashboard"}
+                  </DropdownMenuItem>
+                  {user.role !== "Admin" && (
+                    <DropdownMenuItem onClick={() => navigate("/dashboard/profile")}>
+                      <User className="h-4 w-4 mr-2" />
+                      Profile
+                    </DropdownMenuItem>
                   )}
-                  {user.role === "Admin" ? "Admin Console" : "Dashboard"}
-                </Button>
-                <Button variant="outline" size="icon" onClick={logout}>
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="text-rose-600">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <>
                 <Button
@@ -114,7 +148,8 @@ export function Navbar() {
                   onClick={() => navigate("/signup")}
                   className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5 shadow-md shadow-emerald-700/20"
                 >
-                  Get Started
+                  Protect Your Farm
+                  <ArrowRight className="h-4 w-4" />
                 </Button>
               </>
             )}
@@ -191,7 +226,7 @@ export function Navbar() {
                       }}
                       className="bg-emerald-700 hover:bg-emerald-800 text-white"
                     >
-                      Get Started
+                      Protect Your Farm
                     </Button>
                   </>
                 )}
