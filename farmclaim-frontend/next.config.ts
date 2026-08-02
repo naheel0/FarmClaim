@@ -37,7 +37,7 @@ const nextConfig: NextConfig = {
       // FM3: SPA fallback — any non-file, non-API path serves index.html
       // so deep links and pasted URLs work with hash routing
       {
-        source: "/((?!_next|api|swagger|hangfire|hubs|favicon.ico).*)",
+        source: "/((?!_next|api|swagger|hangfire|hubs|favicon.svg).*)",
         destination: "/",
       },
     ];

@@ -451,7 +451,7 @@ export const paymentsApi = {
         order_id: order.orderId,
         name: "FarmClaim",
         description: premiumScheduleId ? "Crop insurance installment" : "Crop insurance premium",
-        image: "/favicon.ico",
+        image: "/favicon.svg",
         prefill: {
           name: user?.name ?? "",
           email: user?.email ?? "",
