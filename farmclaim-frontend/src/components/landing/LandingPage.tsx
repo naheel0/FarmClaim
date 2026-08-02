@@ -30,7 +30,7 @@ import { Navbar } from "@/components/layout/Navbar";
 
 // Curated real Unsplash farm/agriculture photos
 const HERO_IMG =
-  "https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&w=2000&q=80";
+  "https://images.unsplash.com/photo-1560493676-04071c5f467b?auto=format&fit=crop&w=2000&q=80";
 const HERO_IMG_2 =
   "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80";
 const FARMER_PORTRAIT =
@@ -236,7 +236,7 @@ export function LandingPage() {
         >
           <img
             src={HERO_IMG}
-            alt="Green paddy field at golden hour"
+            alt="Indian farmer standing in a green field at sunset"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/40 via-emerald-950/30 to-background" />
