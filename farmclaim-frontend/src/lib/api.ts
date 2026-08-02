@@ -337,10 +337,10 @@ export const claimsApi = {
     damageDescription: string | null;
     incidentDate: string;
   }>) =>
-    request<ClaimResponseDto>(
+    request<{ message: string; claim: ClaimResponseDto }>(
       `/api/v1/Claims/${id}`,
       { method: "PUT", body: JSON.stringify(dto) }
-    ),
+    ).then((res) => res.claim),
   delete: (id: string) =>
     request<void>(`/api/v1/Claims/${id}`, { method: "DELETE" }),
   uploadImage: (claimId: string, file: File) => {
