@@ -11,7 +11,7 @@ import { Eye, EyeOff, Leaf, ArrowLeft, Loader2, AlertCircle } from "lucide-react
 import { toast } from "sonner";
 
 const HERO_IMG =
-  "https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80";
+  "https://images.unsplash.com/photo-1560493676-04071c5f467b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80";
 
 export function LoginPage() {
   const navigate = useApp((s) => s.navigate);
@@ -204,7 +204,7 @@ export function AuthShell({
       <div className="hidden lg:block relative overflow-hidden sticky top-0 h-screen">
         <img
           src={HERO_IMG}
-          alt="Sunlit green farmland"
+          alt="Indian farmer standing in a green field at sunset"
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/80 via-emerald-900/40 to-emerald-900/20" />
