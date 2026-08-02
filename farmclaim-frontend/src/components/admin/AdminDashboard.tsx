@@ -606,7 +606,34 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
                     <Brain className="h-4 w-4 text-emerald-700" />
                     <span className="font-semibold text-emerald-900">AI Analysis</span>
                   </div>
-                  <p className="text-sm text-emerald-900/90">{claim.aiAnalysisResult}</p>
+                  {(() => {
+                    let parsed: any = null;
+                    try {
+                      const jsonStart = claim.aiAnalysisResult.indexOf("{");
+                      const jsonEnd = claim.aiAnalysisResult.lastIndexOf("}");
+                      if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                        parsed = JSON.parse(claim.aiAnalysisResult.substring(jsonStart, jsonEnd + 1));
+                      }
+                    } catch {}
+                    const damagePct = parsed?.damagePercentage;
+                    const confidence = parsed?.confidence;
+                    const description = parsed?.damageDescription ?? claim.aiAnalysisResult;
+                    return (
+                      <>
+                        <p className="text-sm text-emerald-900/90">{description}</p>
+                        {(damagePct != null || confidence) && (
+                          <div className="flex gap-4 mt-3 text-xs">
+                            {damagePct != null && (
+                              <span className="font-semibold text-emerald-800">{Math.round(damagePct)}% damage</span>
+                            )}
+                            {confidence && (
+                              <span className="text-emerald-700">{confidence} confidence</span>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </CardContent>

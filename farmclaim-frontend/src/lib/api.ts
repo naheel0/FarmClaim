@@ -141,8 +141,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     // M24 FIX: sanitize error messages — strip HTML, stack traces, and JSON payloads
     const safe = text
       .replace(/<[^>]+>/g, "")     // strip HTML tags
-      .replace(/\{.*\}/gs, "")     // strip JSON objects (greedy)
-      .replace(/\[.*\]/gs, "")     // strip JSON arrays
+      .replace(/\{[\s\S]*\}/g, "") // strip JSON objects
+      .replace(/\[[\s\S]*\]/g, "") // strip JSON arrays
       .replace(/at\s+.*?\n/g, "")  // strip stack trace lines
       .replace(/\s{2,}/g, " ")     // collapse whitespace
       .trim()
@@ -243,11 +243,6 @@ export const farmsApi = {
     ),
   delete: (id: string) =>
     request<void>(`/api/v1/Farms/${id}`, { method: "DELETE" }),
-  setLocation: (id: string, dto: { latitude: number; longitude: number; geoJson?: string }) =>
-    request<FarmResponseDto>(
-      `/api/v1/Farms/${id}/location`,
-      { method: "POST", body: JSON.stringify(dto) }
-    ),
 };
 
 // ---- INSURANCE PLANS (read-only for farmers, CUD goes through adminApi) ----
