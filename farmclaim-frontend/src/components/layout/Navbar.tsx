@@ -34,8 +34,22 @@ export function Navbar() {
   const navigate = useApp((s) => s.navigate);
   const user = useApp((s) => s.user);
   const logout = useApp((s) => s.logout);
+  const route = useApp((s) => s.route);
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // With hash-based routing, raw href="#features" would be parsed as a route → 404.
+  // Instead: navigate home first (if needed), then smooth-scroll to the section.
+  const scrollToSection = (id: string) => {
+    const doScroll = () =>
+      document.querySelector(id)?.scrollIntoView({ behavior: "smooth" });
+    if (route.path !== "/" && route.path !== "") {
+      navigate("/");
+      setTimeout(doScroll, 100); // wait for landing page to mount
+    } else {
+      doScroll();
+    }
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -79,13 +93,13 @@ export function Navbar() {
           {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => (
-              <a
+              <button
                 key={link.href}
-                href={link.href}
+                onClick={() => scrollToSection(link.href)}
                 className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-lg transition-colors"
               >
                 {link.label}
-              </a>
+              </button>
             ))}
           </nav>
 
@@ -173,14 +187,13 @@ export function Navbar() {
               </SheetHeader>
               <div className="mt-6 flex flex-col gap-1">
                 {navLinks.map((link) => (
-                  <a
+                  <button
                     key={link.href}
-                    href={link.href}
-                    onClick={() => setOpen(false)}
+                    onClick={() => { setOpen(false); scrollToSection(link.href); }}
                     className="px-3 py-2.5 text-sm font-medium text-foreground hover:bg-foreground/5 rounded-lg"
                   >
                     {link.label}
-                  </a>
+                  </button>
                 ))}
                 <div className="h-px bg-border my-2" />
                 {user ? (
