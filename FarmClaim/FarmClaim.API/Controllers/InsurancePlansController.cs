@@ -7,6 +7,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FarmClaim.API.Controllers
 {
+    /// <summary>
+    /// Public (read-only) insurance plan catalogue.
+    /// Anonymous farmers must be able to browse plans before signing up,
+    /// so the two GET endpoints allow anonymous access. GetAllPlansQuery/
+    /// GetPlanByIdQuery receive AdminContext:false and will only return Active plans.
+    /// </summary>
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
@@ -21,6 +27,7 @@ namespace FarmClaim.API.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous] // anonymous visitors browse plans before signup — handler only returns Active plans (AdminContext:false)
         public async Task<IActionResult> GetAll(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 20,
@@ -35,6 +42,7 @@ namespace FarmClaim.API.Controllers
         }
 
         [HttpGet("{planId}")]
+        [AllowAnonymous] // anonymous visitors view plan details before signup — handler only returns Active plan (AdminContext:false)
         public async Task<IActionResult> GetById(Guid planId)
         {
             try
