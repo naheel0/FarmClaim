@@ -35,7 +35,11 @@ public class CreateFarmCommandHandler : IRequestHandler<CreateFarmCommand, FarmR
             UserId = command.UserId,
             Name = command.Request.Name.Trim(),
             AreaInHectares = command.Request.AreaInHectares,
-            Address = command.Request.Address?.Trim()
+            Address = command.Request.Address?.Trim(),
+            CropType = command.Request.CropType?.Trim(),
+            // GEO: Persist coordinates required for weather/AI analysis on claims
+            Latitude = command.Request.Latitude,
+            Longitude = command.Request.Longitude
         };
 
         await _context.Farms.AddAsync(farm, ct);

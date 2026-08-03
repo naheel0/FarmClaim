@@ -14,4 +14,14 @@ public class CreateFarmRequestDto
 
     [MaxLength(500)]
     public string? Address { get; set; }
+
+    [MaxLength(100)]
+    public string? CropType { get; set; }
+
+    // GEO: Required for weather/AI analysis. Frontend farmer dashboard depends on these.
+    [Range(-90, 90)]
+    public double? Latitude { get; set; }
+
+    [Range(-180, 180)]
+    public double? Longitude { get; set; }
 }

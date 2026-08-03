@@ -18,5 +18,16 @@ public class CreateFarmCommandValidator : AbstractValidator<CreateFarmCommand>
         RuleFor(x => x.Request.Address)
             .MaximumLength(500).WithMessage("Address must not exceed 500 characters")
             .When(x => x.Request.Address != null);
+
+        // GEO: Validate coordinate ranges when provided
+        RuleFor(x => x.Request.Latitude)
+            .InclusiveBetween(-90, 90)
+            .When(x => x.Request.Latitude.HasValue)
+            .WithMessage("Latitude must be between -90 and 90");
+
+        RuleFor(x => x.Request.Longitude)
+            .InclusiveBetween(-180, 180)
+            .When(x => x.Request.Longitude.HasValue)
+            .WithMessage("Longitude must be between -180 and 180");
     }
 }
