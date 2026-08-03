@@ -14,7 +14,6 @@ namespace FarmClaim.API.Controllers
     [ApiController]
     [Route("api/v1/[controller]")]
     [Produces("application/json")]
-    [AllowAnonymous]
     public class HealthController : ControllerBase
     {
         private readonly ApplicationDbContext _dbContext;
@@ -38,6 +37,7 @@ namespace FarmClaim.API.Controllers
         // Use for: Kubernetes livenessProbe, Docker HEALTHCHECK, uptime monitors
         // ============================================
         [HttpGet]
+        [AllowAnonymous]
         [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         public IActionResult GetLiveness()
         {
@@ -98,6 +98,7 @@ namespace FarmClaim.API.Controllers
         // Use for: Quick DB-only monitoring, alerting
         // ============================================
         [HttpGet("db")]
+        [AllowAnonymous]
         [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(object), StatusCodes.Status503ServiceUnavailable)]
         public async Task<IActionResult> GetDbHealth()
