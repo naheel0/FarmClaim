@@ -239,7 +239,7 @@ function NewClaimForm({ onSaved }: { onSaved: () => void }) {
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
-    Array.from(files).slice(0, 6).forEach((file) => {
+    Array.from(files).slice(0, 10).forEach((file) => {
       const url = URL.createObjectURL(file);
       setImages((prev) => [...prev, { url, file }]);
     });
@@ -257,12 +257,12 @@ function NewClaimForm({ onSaved }: { onSaved: () => void }) {
         description: description || null,
         damageDescription: damageDescription || null,
       });
-      // Upload images after claim creation
-      for (const img of images) {
+      // Batch upload all images in a single request
+      if (images.length > 0) {
         try {
-          await claimsApi.uploadImage(claim.id, img.file);
-        } catch {
-          // Continue with remaining images
+          await claimsApi.uploadImages(claim.id, images.map((img) => img.file));
+        } catch (err) {
+          toast.error(`Images failed to upload: ${err instanceof Error ? err.message : "Upload error"}. Claim was created without photos.`);
         }
       }
       toast.success("Claim submitted! AI assessment in progress.");
@@ -471,6 +471,19 @@ function ClaimDetail({ id }: { id: string }) {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Poll for AI analysis result while it's pending
+  const hasImages = (claim?.images ?? []).length > 0;
+  const aiPending = claim && !claim.aiAnalysisResult && hasImages
+    && (claim.status === "Pending" || claim.status === "UnderReview");
+
+  useEffect(() => {
+    if (!aiPending) return;
+    const interval = setInterval(() => {
+      claimsApi.get(id).then(setClaim);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [aiPending, id]);
+
   const handleDelete = async () => {
     setBusy(true);
     try {
@@ -502,19 +515,14 @@ function ClaimDetail({ id }: { id: string }) {
   const handleUploadImages = async (files: FileList | null) => {
     if (!files || !claim) return;
     setUploading(true);
-    let uploaded = 0;
-    for (const file of Array.from(files)) {
-      try {
-        await claimsApi.uploadImage(claim.id, file);
-        uploaded++;
-      } catch {
-        // skip failed
-      }
-    }
-    if (uploaded > 0) {
+    const fileArray = Array.from(files);
+    try {
+      await claimsApi.uploadImages(claim.id, fileArray);
       const updated = await claimsApi.get(claim.id);
       setClaim(updated);
-      toast.success(`${uploaded} image(s) uploaded`);
+      toast.success(`${fileArray.length} image(s) uploaded`);
+    } catch (err) {
+      toast.error(`Upload failed: ${err instanceof Error ? err.message : "Error"}`);
     }
     setUploading(false);
   };
@@ -645,7 +653,25 @@ function ClaimDetail({ id }: { id: string }) {
             </CardContent>
           </Card>
 
-          {/* AI Analysis */}
+          {/* AI Analysis — in progress */}
+          {aiPending && (
+            <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-amber-50/30">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="h-9 w-9 rounded-lg bg-emerald-600 text-white grid place-items-center shrink-0">
+                  <Brain className="h-5 w-5 animate-pulse" />
+                </div>
+                <div>
+                  <div className="font-serif text-lg font-semibold">AI analysis in progress</div>
+                  <div className="text-sm text-muted-foreground">
+                    Gemini is analysing your damage photos. This usually takes 30-60 seconds.
+                  </div>
+                </div>
+                <Loader2 className="h-5 w-5 text-emerald-600 animate-spin ml-auto shrink-0" />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* AI Analysis — result */}
           {claim.aiAnalysisResult && (
             <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-amber-50/30">
               <CardContent className="p-6">
@@ -938,7 +964,7 @@ function getWeatherAccent(condition: string): string {
   return "text-blue-600";
 }
 
-function WeatherSnapshotCard({ json }: { json: string }) {
+export function WeatherSnapshotCard({ json }: { json: string }) {
   let data: WeatherData = {};
   try {
     data = JSON.parse(json);

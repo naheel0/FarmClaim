@@ -125,7 +125,29 @@ namespace FarmClaim.Infrastructure.Jobs
 
             if (imageUrls.Count == 0)
             {
-                _logger.LogInformation("Hangfire: No images for claim {ClaimId}, skipping AI", claimId);
+                _logger.LogInformation("Hangfire: No images for claim {ClaimId}, recording error result", claimId);
+
+                // Set explicit error result so admin/farmer see why AI didn't run
+                claim.AIAnalysisResult = JsonSerializer.Serialize(new
+                {
+                    error = true,
+                    damagePercentage = (double?)null,
+                    damageDescription = "No damage photos uploaded — AI analysis requires at least one image.",
+                    confidence = "N/A",
+                    recommendation = "Upload damage photos to enable AI assessment"
+                }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                claim.AIAnalysisUpdatedAt = DateTime.UtcNow;
+                claim.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                await _notificationService.SendClaimUpdateAsync(claim.UserId, new ClaimNotificationDto
+                {
+                    ClaimId = claimId,
+                    Status = claim.Status,
+                    Title = "AI Analysis — Photos Required",
+                    Message = "Your claim needs damage photos for AI analysis. Please upload at least one photo.",
+                    NotificationType = "AIRequiresImages"
+                });
                 return;
             }
 

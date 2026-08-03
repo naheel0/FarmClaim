@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useApp } from "@/lib/store";
+import { WeatherSnapshotCard } from "@/components/farmer/ClaimsPage";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -25,6 +26,7 @@ import {
   AlertTriangle,
   Eye,
   Brain,
+  CloudRain,
   Globe,
   User,
   ArrowRight,
@@ -333,7 +335,7 @@ function AdminOverviewPage() {
 function AdminClaimsPage() {
   const navigate = useApp((s) => s.navigate);
   const route = useApp((s) => s.route);
-  const [claims, setClaims] = useState<ClaimResponseDto[]>([]);
+  const [claims, setClaims] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("All");
   const [search, setSearch] = useState("");
@@ -420,6 +422,16 @@ function AdminClaimsPage() {
                       <Clock className="h-3 w-3" /> Filed {formatRelative(c.createdAt)}
                     </span>
                     <span>Incident {formatDate(c.incidentDate)}</span>
+                    {c.hasAIAnalysis && (
+                      <span className="flex items-center gap-1 text-emerald-600">
+                        <Brain className="h-3 w-3" /> AI
+                      </span>
+                    )}
+                    {c.hasWeatherData && (
+                      <span className="flex items-center gap-1 text-blue-600">
+                        <CloudRain className="h-3 w-3" /> Weather
+                      </span>
+                    )}
                   </div>
                 </div>
                 <Button variant="outline" size="sm" className="shrink-0">
@@ -436,7 +448,7 @@ function AdminClaimsPage() {
 
 function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void }) {
   const navigate = useApp((s) => s.navigate);
-  const [claim, setClaim] = useState<ClaimResponseDto | null>(null);
+  const [claim, setClaim] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -595,9 +607,15 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
                 </div>
               )}
               {claim.weatherSnapshot && (
-                <div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wide">Weather snapshot</div>
-                  <p className="mt-1 text-sm text-muted-foreground">{claim.weatherSnapshot}</p>
+                <WeatherSnapshotCard json={claim.weatherSnapshot} />
+              )}
+              {claim.suggestedPayout != null && claim.suggestedPayout > 0 && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                  <div className="text-xs text-amber-700 uppercase tracking-wide font-medium">AI suggested payout</div>
+                  <div className="font-serif text-xl font-bold text-amber-800 mt-1">{formatINR(claim.suggestedPayout)}</div>
+                  <div className="text-xs text-amber-700/70 mt-1">
+                    Based on {Math.round(claim.aiDamagePercentage ?? 0)}% damage × {formatINR(claim.coverageAmount ?? 0)} coverage
+                  </div>
                 </div>
               )}
               {claim.aiAnalysisResult && (
@@ -615,9 +633,10 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
                         parsed = JSON.parse(claim.aiAnalysisResult.substring(jsonStart, jsonEnd + 1));
                       }
                     } catch {}
-                    const damagePct = parsed?.damagePercentage;
-                    const confidence = parsed?.confidence;
-                    const description = parsed?.damageDescription ?? claim.aiAnalysisResult;
+                    const damagePct = claim.aiDamagePercentage ?? parsed?.damagePercentage;
+                    const confidence = claim.aiConfidence ?? parsed?.confidence;
+                    const description = claim.aiDamageDescription ?? parsed?.damageDescription ?? claim.aiAnalysisResult;
+                    const recommendation = claim.aiRecommendation ?? parsed?.recommendation;
                     return (
                       <>
                         <p className="text-sm text-emerald-900/90">{description}</p>
@@ -630,6 +649,9 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
                               <span className="text-emerald-700">{confidence} confidence</span>
                             )}
                           </div>
+                        )}
+                        {recommendation && (
+                          <div className="mt-2 text-xs text-emerald-800/80 italic">{recommendation}</div>
                         )}
                       </>
                     );

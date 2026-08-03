@@ -360,6 +360,24 @@ export const claimsApi = {
       return { imageUrl: data.images?.[0]?.imageUrl ?? "" };
     });
   },
+  uploadImages: (claimId: string, files: File[]) => {
+    const token = getToken();
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append("images", file);
+    }
+    return fetch(`${API_BASE}/api/v1/Claims/${claimId}/images`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    }).then(async (res) => {
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new ApiError(text || res.statusText, res.status);
+      }
+      return res.json();
+    });
+  },
   deleteImage: (claimId: string, imageId: string) =>
     request<void>(
       `/api/v1/Claims/${claimId}/images/${imageId}`,

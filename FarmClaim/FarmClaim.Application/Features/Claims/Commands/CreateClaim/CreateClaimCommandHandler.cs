@@ -118,6 +118,11 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
                 else
                 {
                     _logger.LogWarning("Farm {FarmId} has no coordinates, skipping weather fetch", farm.Id);
+                    claim.WeatherSnapshot = JsonSerializer.Serialize(new
+                    {
+                        error = "Farm coordinates missing",
+                        message = "Weather data unavailable — add farm coordinates to enable weather verification"
+                    });
                 }
             }
             catch (Exception ex)
