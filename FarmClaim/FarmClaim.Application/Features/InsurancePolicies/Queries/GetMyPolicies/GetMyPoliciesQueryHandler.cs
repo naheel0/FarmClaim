@@ -72,6 +72,7 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Queries.GetMyPolicies
                 Status = p.Status,
                 RejectionReason = p.RejectionReason,
                 FarmName = p.Farm?.Name,
+                FarmId = p.FarmId,
                 ClaimsCount = p.Claims.Count(c => !c.IsDeleted),
                 CurrentInstallmentNumber = p.CurrentInstallmentNumber,
                 NextInstallmentDueDate = p.NextInstallmentDueDate,

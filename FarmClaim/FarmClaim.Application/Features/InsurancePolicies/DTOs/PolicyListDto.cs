@@ -21,6 +21,7 @@ namespace FarmClaim.Application.Features.InsurancePolicies.DTOs
         public string? RejectionReason { get; init; }
 
         public string? FarmName { get; init; }
+        public Guid FarmId { get; init; }
         public int ClaimsCount { get; init; }
 
         // Installment tracking
