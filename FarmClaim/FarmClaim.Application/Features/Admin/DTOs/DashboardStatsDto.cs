@@ -12,6 +12,8 @@ namespace FarmClaim.Application.Features.Admin.DTOs
         public int UnderReviewClaims { get; init; }
         public int PaidClaims { get; init; }
         public decimal TotalPayoutAmount { get; init; }
+        public decimal TotalClaimsPaidAmount { get; init; }
+        public decimal TotalPremiumCollected { get; init; }
         public decimal PendingPayoutAmount { get; init; }
         public int ClaimsWithImages { get; init; }
         public int ClaimsWithAIAnalysis { get; init; }

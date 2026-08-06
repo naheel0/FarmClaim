@@ -1,13 +1,11 @@
-﻿using FarmClaim.Application.Common.Exceptions;
-using FarmClaim.Application.Common.Interfaces;
+﻿using FarmClaim.Application.Common.Interfaces;
 using FarmClaim.Application.Features.Payments.DTOs;
-using FarmClaim.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace FarmClaim.Application.Features.Payments.Queries.GetPaymentByPolicyId
 {
-    public class GetPaymentByPolicyIdQueryHandler : IRequestHandler<GetPaymentByPolicyIdQuery, PaymentResponseDto>
+    public class GetPaymentByPolicyIdQueryHandler : IRequestHandler<GetPaymentByPolicyIdQuery, List<PaymentResponseDto>>
     {
         private readonly IApplicationDbContext _context;
 
@@ -16,22 +14,18 @@ namespace FarmClaim.Application.Features.Payments.Queries.GetPaymentByPolicyId
             _context = context;
         }
 
-        public async Task<PaymentResponseDto> Handle(GetPaymentByPolicyIdQuery request, CancellationToken ct)
+        public async Task<List<PaymentResponseDto>> Handle(GetPaymentByPolicyIdQuery request, CancellationToken ct)
         {
-            var payment = await _context.Payments
+            var payments = await _context.Payments
                 .AsNoTracking()
                 .Include(p => p.Policy)
                 .Where(p => p.PolicyId == request.PolicyId
                             && p.UserId == request.UserId
-                            && p.Status == PaymentStatus.Captured
                             && !p.IsDeleted)
-                .OrderByDescending(p => p.CapturedAt)
-                .FirstOrDefaultAsync(ct);
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync(ct);
 
-            if (payment == null)
-                throw new NotFoundException("No successful payment found for this policy.");
-
-            return new PaymentResponseDto
+            return payments.Select(payment => new PaymentResponseDto
             {
                 Id = payment.Id,
                 PolicyId = payment.PolicyId,
@@ -53,7 +47,7 @@ namespace FarmClaim.Application.Features.Payments.Queries.GetPaymentByPolicyId
                 ReceiptNumber = payment.ReceiptNumber,
                 CreatedAt = payment.CreatedAt,
                 UpdatedAt = payment.UpdatedAt
-            };
+            }).ToList();
         }
     }
 }

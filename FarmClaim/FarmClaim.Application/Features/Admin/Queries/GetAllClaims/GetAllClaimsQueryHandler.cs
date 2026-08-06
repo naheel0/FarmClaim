@@ -45,12 +45,27 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetAllClaims
             if (!string.IsNullOrWhiteSpace(request.SearchTerm))
             {
                 var term = request.SearchTerm.Trim().ToLower();
+
+                // Pre-parse a matching incident type so we avoid calling .ToString()
+                // inside a LINQ-to-EF expression, which EF Core cannot translate (causes a 500).
+                IncidentType? matchedIncidentType = null;
+                foreach (IncidentType t in Enum.GetValues<IncidentType>())
+                {
+                    if (t.ToString().ToLower().Contains(term))
+                    {
+                        matchedIncidentType = t;
+                        break;
+                    }
+                }
+
                 queryable = queryable.Where(c =>
-                    (c.Policy != null && c.Policy.PolicyNumber.ToLower().Contains(term)) ||
-                    (c.Farm != null && c.Farm.Name.ToLower().Contains(term)) ||
-                    (c.Farm != null && c.Farm.User != null && (c.Farm.User.FirstName + " " + c.Farm.User.LastName).ToLower().Contains(term)) ||
-                    (c.Farm != null && c.Farm.User != null && c.Farm.User.Email.ToLower().Contains(term)) ||
-                    c.IncidentType.ToString().ToLower().Contains(term));
+                    (c.Policy != null && c.Policy.PolicyNumber != null && c.Policy.PolicyNumber.ToLower().Contains(term)) ||
+                    (c.Farm != null && c.Farm.Name != null && c.Farm.Name.ToLower().Contains(term)) ||
+                    (c.Farm != null && c.Farm.User != null &&
+                     (c.Farm.User.FirstName != null && c.Farm.User.FirstName.ToLower().Contains(term) ||
+                      c.Farm.User.LastName != null && c.Farm.User.LastName.ToLower().Contains(term))) ||
+                    (c.Farm != null && c.Farm.User != null && c.Farm.User.Email != null && c.Farm.User.Email.ToLower().Contains(term)) ||
+                    (matchedIncidentType != null && c.IncidentType == matchedIncidentType));
             }
 
             // Sorting

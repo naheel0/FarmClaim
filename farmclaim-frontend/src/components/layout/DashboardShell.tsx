@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn, initials } from "@/lib/utils";
 import { useNotifications } from "@/lib/notifications";
-import { Leaf, Menu, LogOut, Bell, Search, ExternalLink, ChevronRight, CheckCircle2, AlertTriangle, Cloud, Brain } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Leaf, Menu, LogOut, Bell, ExternalLink, ChevronRight, CheckCircle2, AlertTriangle, Cloud, Brain } from "lucide-react";
+import { GlobalSearch } from "./GlobalSearch";
 
 export interface NavItem {
   label: string;
@@ -106,13 +106,7 @@ export function DashboardShell({
           <div className="flex items-center gap-3 px-4 lg:px-8 py-3">
             <div className="lg:hidden w-10" />
             <div className="flex-1 max-w-md">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search farms, policies, claims…"
-                  className="pl-9 h-10 bg-background/60"
-                />
-              </div>
+              <GlobalSearch />
             </div>
 
             <DropdownMenu>

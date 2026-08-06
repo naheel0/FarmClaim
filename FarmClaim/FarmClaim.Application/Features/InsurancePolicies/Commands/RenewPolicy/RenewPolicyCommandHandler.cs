@@ -41,10 +41,14 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.RenewPolicy
             if (oldPolicy == null)
                 throw new NotFoundException(nameof(InsurancePolicy), command.PolicyId);
 
-            if (oldPolicy.Status != PolicyStatus.Expired)
+            var isExpired = oldPolicy.Status == PolicyStatus.Expired;
+            var isEarlyRenewal = oldPolicy.Status == PolicyStatus.Active
+                                 && oldPolicy.EndDate <= DateTime.UtcNow.AddDays(7);
+
+            if (!isExpired && !isEarlyRenewal)
                 throw new ValidationException(new List<string>
                 {
-                    $"Only expired policies can be renewed. Current status: {oldPolicy.Status}."
+                    $"Only expired policies or active policies within 7 days of expiry can be renewed. Current status: {oldPolicy.Status}."
                 });
 
             if (!oldPolicy.InsurancePlanId.HasValue)
@@ -64,7 +68,11 @@ namespace FarmClaim.Application.Features.InsurancePolicies.Commands.RenewPolicy
                 startDate,
                 endDate: null,
                 policyNumber: null,
-                ct);
+                ct,
+                isRenewal: true);
+
+            policy.RenewedFromPolicyId = oldPolicy.Id;
+            await _context.SaveChangesAsync(ct);
 
             var farm = await _context.Farms
                 .AsNoTracking()

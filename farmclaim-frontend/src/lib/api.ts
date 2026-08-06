@@ -109,7 +109,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  let res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const doFetch = async (): Promise<Response> => {
+    try {
+      return await fetch(`${API_BASE}${path}`, { ...options, headers });
+    } catch {
+      throw new ApiError(
+        "Unable to reach the server. Check your internet connection and try again.",
+        0
+      );
+    }
+  };
+
+  let res = await doFetch();
 
   if (res.status === 401 && !path.includes("/Auth/")) {
     try {
@@ -119,7 +130,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       }
       const newToken = await refreshPromise;
       headers["Authorization"] = `Bearer ${newToken}`;
-      res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      res = await doFetch();
     } catch {
       clearAuth();
       throw new ApiError("Session expired. Please sign in.", 401);
@@ -133,21 +144,30 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   // duplicate policies, double-filed claims, and double-charged payments.
   if (!res.ok && res.status >= 500 && res.status < 600 && (method === "GET" || method === "HEAD")) {
     await new Promise((r) => setTimeout(r, 1500));
-    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    res = await doFetch();
   }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    // M24 FIX: sanitize error messages — strip HTML, stack traces, and JSON payloads
-    const safe = text
-      .replace(/<[^>]+>/g, "")     // strip HTML tags
-      .replace(/\{[\s\S]*\}/g, "") // strip JSON objects
-      .replace(/\[[\s\S]*\]/g, "") // strip JSON arrays
-      .replace(/at\s+.*?\n/g, "")  // strip stack trace lines
-      .replace(/\s{2,}/g, " ")     // collapse whitespace
-      .trim()
-      .slice(0, 200);              // cap length
-    throw new ApiError(safe || res.statusText || "Something went wrong", res.status);
+    let message: string | null = null;
+    try {
+      const j = JSON.parse(text);
+      if (Array.isArray(j?.errors) && j.errors.length > 0) message = j.errors.join(", ");
+      else if (typeof j?.error === "string") message = j.error;
+      else if (typeof j?.message === "string") message = j.message;
+      else if (typeof j?.title === "string") message = j.title;
+    } catch {
+      // not JSON - sanitize raw text below
+    }
+    if (!message && text) {
+      message = text
+        .replace(/<[^>]+>/g, "")     // strip HTML tags
+        .replace(/at\s+.*?\n/g, "")  // strip stack trace lines
+        .replace(/\s{2,}/g, " ")     // collapse whitespace
+        .trim()
+        .slice(0, 200);              // cap length
+    }
+    throw new ApiError(message || `Request failed (${res.status})`, res.status);
   }
   if (res.status === 204) return undefined as T;
   const ct = res.headers.get("content-type") || "";
@@ -430,10 +450,9 @@ export interface RazorpayCheckoutResult {
 
 export const paymentsApi = {
   createOrder: (policyId: string, premiumScheduleId?: string) => {
-    const qs = premiumScheduleId ? `?premiumScheduleId=${premiumScheduleId}` : "";
     return request<{ orderId: string; amountInRupees: number; currency: string; razorpayKeyId?: string }>(
-      `/api/v1/Payments/create-order/${policyId}${qs}`,
-      { method: "POST" }
+      `/api/v1/Payments/create-order/${policyId}`,
+      { method: "POST", body: JSON.stringify({ premiumScheduleId }) }
     );
   },
   verify: (orderId: string, paymentId: string, signature: string) =>
@@ -441,11 +460,13 @@ export const paymentsApi = {
       "/api/v1/Payments/verify",
       { method: "POST", body: JSON.stringify({ razorpayOrderId: orderId, razorpayPaymentId: paymentId, razorpaySignature: signature }) }
     ),
-  getByPolicy: (policyId: string) =>
-    request<any>(
+  getByPolicy: async (policyId: string) => {
+    const data = await request<any>(
       `/api/v1/Payments/policy/${policyId}`,
       { method: "GET" }
-    ),
+    );
+    return Array.isArray(data) ? data : data ? [data] : [];
+  },
 
   checkout: async (
     policyId: string,
@@ -509,9 +530,14 @@ export const paymentsApi = {
           },
         });
         rzp.on("payment.failed", (resp: any) => {
+          const desc = resp?.error?.description ?? "";
+          const error =
+            desc && !/^payment\s+failed\b/i.test(desc.trim())
+              ? desc
+              : "The payment was not completed.";
           resolve({
             ok: false,
-            error: resp?.error?.description ?? "Payment failed",
+            error,
           });
         });
         // C3 FIX: Handle modal dismiss — without this, closing the Razorpay modal
@@ -566,8 +592,8 @@ function mapDashboardStats(raw: any): AdminDashboardDto {
     pendingClaims: raw.pendingClaims ?? 0,
     pendingPolicies: raw.pendingPolicies ?? 0,
     // C5 FIX: Use correct backend field names (DashboardStatsDto uses PascalCase from .NET)
-    totalPremiumCollected: raw.totalPayoutAmount ?? raw.TotalPayoutAmount ?? 0,
-    totalClaimsPaid: raw.paidClaims ?? raw.PaidClaims ?? 0,
+    totalPremiumCollected: raw.totalPremiumCollected ?? raw.TotalPremiumCollected ?? 0,
+    totalClaimsPaid: raw.totalClaimsPaidAmount ?? raw.TotalClaimsPaidAmount ?? 0,
     claimsByStatus: {
       Pending: raw.pendingClaims ?? raw.PendingClaims ?? 0,
       UnderReview: raw.underReviewClaims ?? raw.UnderReviewClaims ?? 0,
@@ -584,8 +610,12 @@ function mapDashboardStats(raw: any): AdminDashboardDto {
     claimsByIncidentType: Object.fromEntries(
       (raw.incidentBreakdown ?? raw.IncidentBreakdown ?? []).map((i: any) => [i.incidentType, i.count])
     ),
-    // C5 FIX: Backend returns TopFarms — only use for "top farms" section, NOT as recentClaims
-    recentClaims: [],
+    topFarms: (raw.topFarms ?? raw.TopFarms ?? []).map((t: any) => ({
+      farmName: t.farmName ?? t.FarmName ?? "",
+      farmerName: t.farmerName ?? t.FarmerName ?? "",
+      claimCount: t.claimCount ?? t.ClaimCount ?? 0,
+      totalClaimed: t.totalClaimed ?? t.TotalClaimed ?? 0,
+    })),
     premiumTrend: (raw.monthlyTrends ?? raw.MonthlyTrends ?? []).map((m: any) => ({
       month: m.month,
       premium: m.amount ?? 0,
@@ -689,11 +719,21 @@ export const adminApi = {
     const qs = query.toString();
     return request<PagedResult<any>>(`/api/v1/Admin/Policies${qs ? `?${qs}` : ""}`, { method: "GET" });
   },
-  listPlans: () =>
-    request<PagedResult<InsurancePlanDto> | InsurancePlanDto[]>(
-      "/api/v1/Admin/Plans",
+  getPlan: (id: string) =>
+    request<InsurancePlanDto>(
+      `/api/v1/Admin/Plans/${id}`,
       { method: "GET" }
-    ).then((data) => extractItems<InsurancePlanDto>(data)),
+    ),
+  listPlans: (params?: { page?: number; pageSize?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.page) query.set("pageNumber", String(params.page));
+    if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+    const qs = query.toString();
+    return request<PagedResult<InsurancePlanDto>>(
+      `/api/v1/Admin/Plans${qs ? `?${qs}` : ""}`,
+      { method: "GET" }
+    );
+  },
   listFarmers: (params?: { page?: number; pageSize?: number; searchTerm?: string }) => {
     const query = new URLSearchParams();
     if (params?.page) query.set("pageNumber", String(params.page));
@@ -707,11 +747,19 @@ export const adminApi = {
       `/api/v1/Farmers/${id}`,
       { method: "GET" }
     ),
-  auditLogs: () =>
-    request<PagedResult<any>>(
-      "/api/v1/Admin/AuditLogs",
+  auditLogs: (params?: { page?: number; pageSize?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.page) query.set("pageNumber", String(params.page));
+    if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+    const qs = query.toString();
+    return request<PagedResult<any>>(
+      `/api/v1/Admin/AuditLogs${qs ? `?${qs}` : ""}`,
       { method: "GET" }
-    ).then((data) => extractItems<any>(data).map(mapAuditLog)),
+    ).then((data) => ({
+      ...(data as object),
+      items: extractItems<any>(data).map(mapAuditLog),
+    }) as PagedResult<AuditLogDto>);
+  },
   getAuditLog: (id: string) =>
     request<any>(
       `/api/v1/Admin/AuditLogs/${id}`,

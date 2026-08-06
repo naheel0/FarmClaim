@@ -19,6 +19,7 @@ namespace FarmClaim.Application.Features.Farmers.DTOs
         public DateTime? LastLoginAt { get; init; }
         public int FarmsCount { get; init; }
         public int PoliciesCount { get; init; }
+        public int ClaimsCount { get; init; }
     }
 
 }

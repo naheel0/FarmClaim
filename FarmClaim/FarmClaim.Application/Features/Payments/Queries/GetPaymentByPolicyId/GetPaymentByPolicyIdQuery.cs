@@ -3,5 +3,5 @@ using MediatR;
 
 namespace FarmClaim.Application.Features.Payments.Queries.GetPaymentByPolicyId
 {
-    public record GetPaymentByPolicyIdQuery(Guid PolicyId, Guid UserId) : IRequest<PaymentResponseDto>;
+    public record GetPaymentByPolicyIdQuery(Guid PolicyId, Guid UserId) : IRequest<List<PaymentResponseDto>>;
 }

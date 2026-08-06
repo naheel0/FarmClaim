@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useApp } from "@/lib/store";
 import { authApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -18,10 +18,6 @@ export function VerifyEmailPage() {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (emailFromUrl) setEmail(emailFromUrl);
-  }, [emailFromUrl]);
 
   const onVerify = async (e: React.FormEvent) => {
     e.preventDefault();

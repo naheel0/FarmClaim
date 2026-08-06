@@ -209,7 +209,7 @@ namespace FarmClaim.Application.Features.Payments.Commands.VerifyPayment
                 Success = true,
                 Message = isInstallmentPayment
                     ? $"Installment {installmentNumber} of {totalInstallments} paid successfully. Policy remains pending until all installments are received."
-                    : "Payment verified successfully. Your policy is now active.",
+                    : "Payment verified successfully. Your policy is awaiting admin approval.",
                 PaymentId = payment.Id,
                 PolicyId = payment.PolicyId,
                 PolicyNumber = payment.Policy?.PolicyNumber,

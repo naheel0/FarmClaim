@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, createElement } from "react";
 import { useApp } from "@/lib/store";
 import { claimsApi, farmsApi, policiesApi } from "@/lib/api";
 import type {
@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { StatusBadge, IncidentBadge } from "@/components/shared/badges";
+import { StatusBadge, IncidentBadge, incidentLabel } from "@/components/shared/badges";
 import {
   Dialog,
   DialogContent,
@@ -96,7 +96,9 @@ export function ClaimsPage() {
     setLoading(true);
     claimsApi.list().then(setClaims).finally(() => setLoading(false));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    claimsApi.list().then(setClaims).finally(() => setLoading(false));
+  }, []);
 
   // New claim form
   if (route.path === "/dashboard/claims/new") {
@@ -236,6 +238,8 @@ function NewClaimForm({ onSaved }: { onSaved: () => void }) {
   }, []);
 
   const availablePolicies = policies.filter((p) => p.farmId === farmId);
+  const selectedFarm = farms.find((f) => f.id === farmId);
+  const hasCoordinates = selectedFarm && typeof selectedFarm.latitude === "number" && typeof selectedFarm.longitude === "number";
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
@@ -290,11 +294,28 @@ function NewClaimForm({ onSaved }: { onSaved: () => void }) {
         subtitle="Tell us what happened. Our AI will verify damage using satellite + weather data."
       />
 
-      <form onSubmit={onSubmit} className="space-y-6">
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <h3 className="font-serif text-lg font-semibold">Incident details</h3>
-            <div className="grid sm:grid-cols-2 gap-4">
+        <form onSubmit={onSubmit} className="space-y-6">
+          <Card>
+            <CardContent className="p-6 space-y-4">
+              <h3 className="font-serif text-lg font-semibold">Incident details</h3>
+              {!hasCoordinates && farmId && (
+                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm">
+                  <span className="font-semibold">Note: </span>
+                  This farm has no coordinates. Weather and satellite verification will be unavailable.
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="p-0 h-auto text-amber-800"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate("/dashboard/farms");
+                    }}
+                  >
+                    Add coordinates
+                  </Button>
+                </div>
+              )}
+              <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Farm</Label>
                 <Select value={farmId} onValueChange={(v) => { setFarmId(v); setPolicyId(""); }} required>
@@ -551,7 +572,7 @@ function ClaimDetail({ id }: { id: string }) {
       </Button>
 
       <PageHeader
-        title={`Claim — ${claim.incidentType}`}
+        title={`Claim — ${incidentLabel(claim.incidentType)}`}
         subtitle={`${claim.farmName} · Filed ${formatDate(claim.createdAt)}`}
         actions={
           <div className="flex items-center gap-2">
@@ -988,7 +1009,7 @@ export function WeatherSnapshotCard({ json }: { json: string }) {
   }
 
   const condition = data.weatherCondition ?? "Unknown";
-  const WeatherIcon = getWeatherIcon(condition);
+  const weatherIcon = createElement(getWeatherIcon(condition), { className: "h-6 w-6" });
   const gradient = getWeatherGradient(condition);
   const accent = getWeatherAccent(condition);
 
@@ -998,7 +1019,7 @@ export function WeatherSnapshotCard({ json }: { json: string }) {
         <div className="flex items-start justify-between mb-5">
           <div className="flex items-center gap-3">
             <div className={`h-11 w-11 rounded-xl bg-white/80 backdrop-blur grid place-items-center shadow-sm ${accent}`}>
-              <WeatherIcon className="h-6 w-6" />
+              {weatherIcon}
             </div>
             <div>
               <div className="font-serif text-lg font-semibold">Weather snapshot</div>

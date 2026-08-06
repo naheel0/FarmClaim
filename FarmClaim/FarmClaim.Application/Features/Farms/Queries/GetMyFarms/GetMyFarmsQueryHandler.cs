@@ -51,6 +51,8 @@ namespace FarmClaim.Application.Features.Farms.Queries.GetMyFarms
                 Name = f.Name,
                 AreaInHectares = f.AreaInHectares,
                 Address = f.Address,
+                Latitude = f.Latitude,
+                Longitude = f.Longitude,
                 IsActive = f.IsActive,
                 PoliciesCount = f.InsurancePolicies.Count(p => !p.IsDeleted),
                 ClaimsCount = f.Claims.Count(c => !c.IsDeleted),

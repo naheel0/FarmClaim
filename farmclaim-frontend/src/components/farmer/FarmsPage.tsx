@@ -67,7 +67,9 @@ export function FarmsPage() {
     setLoading(true);
     farmsApi.list().then(setFarms).finally(() => setLoading(false));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    farmsApi.list().then(setFarms).finally(() => setLoading(false));
+  }, []);
 
   const detailId = route.params.id;
   if (detailId) {

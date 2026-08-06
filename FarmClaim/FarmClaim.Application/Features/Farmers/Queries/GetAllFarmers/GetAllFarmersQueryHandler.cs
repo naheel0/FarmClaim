@@ -62,7 +62,8 @@ namespace FarmClaim.Application.Features.Farmers.Queries.GetAllFarmers
                 CreatedAt = u.CreatedAt,
                 LastLoginAt = u.LastLoginAt,
                 FarmsCount = u.Farms.Count(f => !f.IsDeleted),
-                PoliciesCount = u.Farms.SelectMany(f => f.InsurancePolicies).Count(p => !p.IsDeleted && p.Status == PolicyStatus.Active)
+                PoliciesCount = u.Farms.SelectMany(f => f.InsurancePolicies).Count(p => !p.IsDeleted && p.Status == PolicyStatus.Active),
+                ClaimsCount = u.Farms.SelectMany(f => f.Claims).Count(c => !c.IsDeleted)
             }).ToList();
 
             var totalPages = request.PageSize > 0

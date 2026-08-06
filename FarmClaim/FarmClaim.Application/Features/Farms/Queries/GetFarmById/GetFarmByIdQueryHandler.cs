@@ -56,7 +56,7 @@ namespace FarmClaim.Application.Features.Farms.Queries.GetFarmById
                 CreatedAt = farm.CreatedAt,
                 UpdatedAt = farm.UpdatedAt,
                 IsActive = farm.IsActive,
-                PoliciesCount = farm.InsurancePolicies.Count(p => !p.IsDeleted && p.Status == PolicyStatus.Active),
+                PoliciesCount = farm.InsurancePolicies.Count(p => !p.IsDeleted),
                 ClaimsCount = farm.Claims.Count(c => !c.IsDeleted)
             };
         }

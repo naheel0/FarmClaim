@@ -70,7 +70,9 @@ export function PoliciesPage() {
     setLoading(true);
     policiesApi.list().then(setPolicies).finally(() => setLoading(false));
   };
-  useEffect(load, []);
+  useEffect(() => {
+    policiesApi.list().then(setPolicies).finally(() => setLoading(false));
+  }, []);
 
   // Detail view if route is /dashboard/policies/:id
   const detailId = route.params.id;
@@ -111,6 +113,24 @@ export function PoliciesPage() {
             <Skeleton key={i} className="h-44 rounded-xl" />
           ))}
         </div>
+      ) : policies.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <div className="h-14 w-14 rounded-full bg-emerald-100 mx-auto grid place-items-center mb-4">
+              <FileText className="h-7 w-7 text-emerald-700" />
+            </div>
+            <h3 className="font-serif text-xl font-semibold">No policies yet</h3>
+            <p className="text-muted-foreground mt-1">
+              Buy your first crop insurance policy to get started.
+            </p>
+            <Button
+              onClick={() => navigate("/dashboard/plans")}
+              className="mt-5 bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5"
+            >
+              <Plus className="h-4 w-4" /> Browse plans
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
           {policies.map((p) => (
@@ -257,7 +277,8 @@ function PolicyDetail({ id }: { id: string }) {
   if (!policy) return <div>Policy not found.</div>;
 
   const canEdit = policy.status === "Pending";
-  const canDelete = policy.status === "Pending" || policy.status === "PaymentReceived";
+  const canDelete = policy.status === "Pending";
+  const isInstallment = (policy.premiumSchedules?.length ?? 0) > 0;
 
   const stepLabel: Record<PayStep, string> = {
     idle: "Pay now",
@@ -384,7 +405,7 @@ function PolicyDetail({ id }: { id: string }) {
           <CardContent className="p-6">
             <h3 className="font-serif text-lg font-semibold mb-4">Quick actions</h3>
             <div className="space-y-2">
-              {policy.status === "Pending" && (
+              {policy.status === "Pending" && !isInstallment && (
                 <Button
                   className="w-full justify-start gap-2 bg-emerald-700 hover:bg-emerald-800 text-white"
                   onClick={handlePay}
@@ -420,13 +441,15 @@ function PolicyDetail({ id }: { id: string }) {
                   </Button>
                 );
               })()}
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => navigate("/dashboard/claims/new")}
-              >
-                <FileText className="h-4 w-4" /> File a claim on this policy
-              </Button>
+              {policy.status === "Active" && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={() => navigate("/dashboard/claims/new")}
+                >
+                  <FileText className="h-4 w-4" /> File a claim on this policy
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="w-full justify-start gap-2"
@@ -449,19 +472,21 @@ function PolicyDetail({ id }: { id: string }) {
                 {payments.map((pmt: any) => (
                   <div key={pmt.id} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
                     <div>
-                      <div className="font-medium">{formatINR(pmt.amount)}</div>
-                      <div className="text-xs text-muted-foreground">{formatDate(pmt.paymentDate)}</div>
+                      <div className="font-medium">{formatINR(pmt.amountInRupees)}</div>
+                      <div className="text-xs text-muted-foreground">{formatDate(pmt.capturedAt ?? pmt.createdAt)}</div>
                     </div>
                     <Badge
                       className={
-                        pmt.status === "Completed" || pmt.status === "Confirmed"
+                        pmt.status === "Captured"
                           ? "bg-emerald-100 text-emerald-800 border-0"
-                          : pmt.status === "Pending" || pmt.status === "Processing"
-                            ? "bg-amber-100 text-amber-800 border-0"
-                            : "bg-rose-100 text-rose-800 border-0"
+                          : pmt.status === "Failed"
+                            ? "bg-rose-100 text-rose-800 border-0"
+                            : pmt.status === "Refunded" || pmt.status === "Expired"
+                              ? "bg-slate-100 text-slate-600 border-0"
+                              : "bg-amber-100 text-amber-800 border-0"
                       }
                     >
-                      {pmt.status ?? pmt.paymentStatus ?? "N/A"}
+                      {pmt.status ?? "N/A"}
                     </Badge>
                   </div>
                 ))}
@@ -665,6 +690,9 @@ function BuyPolicyForm({ onSaved }: { onSaved: () => void }) {
   const sumInsured = selectedPlan && selectedFarm
     ? selectedPlan.sumInsuredPerHectare * selectedFarm.areaInHectares
     : 0;
+  const installmentCount = selectedPlan?.supportsInstallments ? (selectedPlan.installmentCount ?? 1) : 1;
+  const isInstallment = installmentCount > 1;
+  const installmentAmount = isInstallment ? Math.round((premium / installmentCount) * 100) / 100 : premium;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -678,23 +706,31 @@ function BuyPolicyForm({ onSaved }: { onSaved: () => void }) {
         startDate: new Date(startDate).toISOString(),
       });
 
-      // 2. Open Razorpay checkout for the premium
+      // 2. For installment plans, pay the first installment; otherwise the full premium
+      const firstSchedule = [...(policy.premiumSchedules ?? [])].sort(
+        (a, b) => a.installmentNumber - b.installmentNumber
+      )[0];
+      const amountDue = firstSchedule?.amountDue ?? policy.premium;
+
       setPayStep("checkout");
       setPaying(true);
-      const result = await paymentsApi.checkout(policy.id, {
-        name: user ? `${user.firstName} ${user.lastName}` : undefined,
-        email: user?.email ?? undefined,
-        phone: user?.phoneNumber ?? undefined,
-      });
+      const result = await paymentsApi.checkout(
+        policy.id,
+        {
+          name: user ? `${user.firstName} ${user.lastName}` : undefined,
+          email: user?.email ?? undefined,
+          phone: user?.phoneNumber ?? undefined,
+        },
+        firstSchedule?.id
+      );
       setPaying(false);
 
       if (!result.ok) {
         toast.error(
           result.error
             ? `Payment failed: ${result.error}`
-            : "Payment failed — policy remains pending"
+            : "Payment failed — policy remains pending. Pay from the Policies page."
         );
-        // Policy was still created, just unpaid. Refresh list.
         onSaved();
         return;
       }
@@ -702,8 +738,10 @@ function BuyPolicyForm({ onSaved }: { onSaved: () => void }) {
       // 3. Verify signature server-side
       setPayStep("verifying");
       if (result.verified) {
-        toast.success(`Payment verified · ${result.paymentId}`, {
-          description: "Policy is now active pending admin approval.",
+        toast.success(firstSchedule ? "First installment paid" : `Payment verified · ${result.paymentId}`, {
+          description: firstSchedule
+            ? `Installment 1 of ${policy.premiumSchedules?.length ?? 0} received. Policy stays pending until all installments are paid.`
+            : "Your policy is awaiting admin approval.",
         });
       } else {
         toast.warning("Payment completed but verification pending", {
@@ -779,8 +817,8 @@ function BuyPolicyForm({ onSaved }: { onSaved: () => void }) {
             <span>{selectedFarm.areaInHectares} ha</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Premium (Razorpay)</span>
-            <span className="font-semibold">{formatINR(premium)}</span>
+            <span className="text-muted-foreground">{isInstallment ? '1st installment' : 'Premium'} (Razorpay)</span>
+            <span className="font-semibold">{formatINR(isInstallment ? installmentAmount : premium)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Sum insured</span>
@@ -803,20 +841,26 @@ function BuyPolicyForm({ onSaved }: { onSaved: () => void }) {
         </div>
       )}
 
-      <DialogFooter>
-        <Button
-          type="submit"
-          disabled={saving || paying || !farmId || !planId}
-          className="bg-emerald-700 hover:bg-emerald-800 text-white"
-        >
-          {saving || paying ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <CreditCard className="h-4 w-4" />
+          {isInstallment && (
+            <p className="text-xs text-muted-foreground">
+              Installment plan: {installmentCount} payments of ~{formatINR(installmentAmount)} · pay the rest from your policy page.
+            </p>
           )}
-          {saving || paying ? stepLabel[payStep] : `Pay ${formatINR(premium)} & buy`}
-        </Button>
-      </DialogFooter>
+
+          <DialogFooter>
+            <Button
+              type="submit"
+              disabled={saving || paying || !farmId || !planId}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white"
+            >
+              {saving || paying ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CreditCard className="h-4 w-4" />
+              )}
+              {saving || paying ? stepLabel[payStep] : isInstallment ? `Pay 1st installment ${formatINR(installmentAmount)} & buy` : `Pay ${formatINR(premium)} & buy`}
+            </Button>
+          </DialogFooter>
     </form>
   );
 }

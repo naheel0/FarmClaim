@@ -69,6 +69,12 @@ namespace FarmClaim.Domain.Entities
         // Cancellation tracking
         public DateTime? CancelledAt { get; set; }
 
+        // Renewal tracking: the policy this one replaced (renewal chain)
+        public Guid? RenewedFromPolicyId { get; set; }
+
+        [ForeignKey(nameof(RenewedFromPolicyId))]
+        public virtual InsurancePolicy? RenewedFromPolicy { get; set; }
+
         // Installment tracking
         public int? CurrentInstallmentNumber { get; set; } = 1;
         public DateTime? NextInstallmentDueDate { get; set; }

@@ -113,7 +113,7 @@ namespace FarmClaim.API.Controllers
             {
                 var command = new UpdatePolicyCommand(policyId, GetUserId(), request);
                 var result = await _mediator.Send(command);
-                return Ok(new { message = "Policy updated successfully", policy = result });
+                return Ok(result);
             }
             catch (NotFoundException ex)
             {

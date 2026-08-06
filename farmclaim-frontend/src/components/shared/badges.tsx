@@ -72,6 +72,10 @@ const incidentIcons: Record<IncidentType, string> = {
   Other: "⚠️",
 };
 
+export function incidentLabel(type: IncidentType | string): string {
+  return type.replace(/([A-Z])/g, " $1").trim();
+}
+
 export function IncidentBadge({ type }: { type: IncidentType }) {
   return (
     <span
@@ -81,7 +85,7 @@ export function IncidentBadge({ type }: { type: IncidentType }) {
       )}
     >
       <span>{incidentIcons[type]}</span>
-      {type.replace(/([A-Z])/g, " $1").trim()}
+      {incidentLabel(type)}
     </span>
   );
 }

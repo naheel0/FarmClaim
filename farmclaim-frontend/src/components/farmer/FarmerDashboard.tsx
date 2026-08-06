@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, createElement } from "react";
 import { useApp } from "@/lib/store";
 import {
   LayoutDashboard,
@@ -177,21 +177,18 @@ function OverviewPage() {
               label="Total farms"
               value={profile?.totalFarms ?? 0}
               icon={Tractor}
-              delta={{ value: "1 new", up: true }}
             />
             <CardStat
               label="Active policies"
               value={policies.filter((p) => p.status === "Active").length}
               icon={FileText}
               accent="amber"
-              delta={{ value: "2 active", up: true }}
             />
             <CardStat
               label="Total claims"
               value={profile?.totalClaims ?? 0}
               icon={ClipboardList}
               accent="blue"
-              delta={{ value: "1 pending", up: false }}
             />
             <CardStat
               label="Total received"
@@ -202,7 +199,6 @@ function OverviewPage() {
               )}
               icon={Wallet}
               accent="rose"
-              delta={{ value: "₹2.3L", up: true }}
             />
           </div>
 
@@ -397,8 +393,7 @@ function WeatherWidget({ farms }: { farms?: FarmResponseDto[] }) {
   useEffect(() => {
     const farm = farms?.[0];
     if (!farm || farm.latitude == null || farm.longitude == null) {
-      setLoading(false);
-      setError(true);
+      Promise.resolve().then(() => { setLoading(false); setError(true); });
       return;
     }
     weatherApi
@@ -409,7 +404,9 @@ function WeatherWidget({ farms }: { farms?: FarmResponseDto[] }) {
   }, [farms]);
 
   const farm = farms?.[0];
-  const Icon = weather ? getWeatherIcon(weather.weatherCondition) : CloudRain;
+  const weatherIcon = weather
+    ? createElement(getWeatherIcon(weather.weatherCondition), { className: "h-8 w-8 text-emerald-200" })
+    : <CloudRain className="h-8 w-8 text-emerald-200" />;
 
   return (
     <Card className="overflow-hidden border-0 shadow-md bg-gradient-to-br from-emerald-700 via-emerald-800 to-green-900 text-white">
@@ -441,7 +438,7 @@ function WeatherWidget({ farms }: { farms?: FarmResponseDto[] }) {
                   {farm?.name || "Your farm"}
                 </div>
               </div>
-              <Icon className="h-8 w-8 text-emerald-200" />
+              {weatherIcon}
             </div>
             <div className="mt-4 flex items-baseline gap-2">
               <span className="text-5xl font-bold font-serif">

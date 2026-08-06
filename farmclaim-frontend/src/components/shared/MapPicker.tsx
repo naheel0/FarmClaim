@@ -117,7 +117,6 @@ export function MapPicker({
       mapRef.current = null;
       markerRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync external lat/lng changes (e.g. from search/geolocation) to marker

@@ -29,13 +29,21 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetDashboardStats
             var paidClaims = await _context.Claims.AsNoTracking().CountAsync(c => !c.IsDeleted && c.Status == ClaimStatus.Paid, ct);
 
             // --- Payout amounts (SQL aggregation) ---
+            // Committed payout = approved + paid claims
             var totalPayoutAmount = await _context.Claims.AsNoTracking()
-                .Where(c => !c.IsDeleted && c.Status == ClaimStatus.Approved && c.ApprovedAmount.HasValue)
+                .Where(c => !c.IsDeleted
+                    && (c.Status == ClaimStatus.Approved || c.Status == ClaimStatus.Paid)
+                    && c.ApprovedAmount.HasValue)
                 .SumAsync(c => c.ApprovedAmount!.Value, ct);
 
-            // Pending payout = sum of approved amounts for claims that are still pending (estimated)
+            // Actually disbursed = paid claims only
+            var totalClaimsPaidAmount = await _context.Claims.AsNoTracking()
+                .Where(c => !c.IsDeleted && c.Status == ClaimStatus.Paid && c.ApprovedAmount.HasValue)
+                .SumAsync(c => c.ApprovedAmount!.Value, ct);
+
+            // Outstanding payout = approved but not yet paid
             var pendingPayoutAmount = await _context.Claims.AsNoTracking()
-                .Where(c => !c.IsDeleted && c.Status == ClaimStatus.Pending && c.ApprovedAmount.HasValue)
+                .Where(c => !c.IsDeleted && c.Status == ClaimStatus.Approved && c.ApprovedAmount.HasValue)
                 .SumAsync(c => c.ApprovedAmount!.Value, ct);
 
             // --- Claim metadata counts (SQL) ---
@@ -69,6 +77,11 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetDashboardStats
                 .CountAsync(u => u.Role == UserRole.Farmer && !u.IsDeleted, ct);
             var totalFarms = await _context.Farms.AsNoTracking()
                 .CountAsync(f => !f.IsDeleted, ct);
+
+            // --- Premium collected (sum of captured payments) ---
+            var totalPremiumCollected = await _context.Payments.AsNoTracking()
+                .Where(p => !p.IsDeleted && p.Status == PaymentStatus.Captured)
+                .SumAsync(p => (decimal?)p.AmountInRupees ?? 0, ct);
 
             // --- Incident breakdown (SQL GroupBy) ---
             var incidentBreakdown = await _context.Claims.AsNoTracking()
@@ -156,6 +169,8 @@ namespace FarmClaim.Application.Features.Admin.Queries.GetDashboardStats
                 UnderReviewClaims = underReviewClaims,
                 PaidClaims = paidClaims,
                 TotalPayoutAmount = totalPayoutAmount,
+                TotalClaimsPaidAmount = totalClaimsPaidAmount,
+                TotalPremiumCollected = totalPremiumCollected,
                 PendingPayoutAmount = pendingPayoutAmount,
                 ClaimsWithImages = claimsWithImages,
                 ClaimsWithAIAnalysis = claimsWithAIAnalysis,

@@ -72,7 +72,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { StatusBadge, IncidentBadge } from "@/components/shared/badges";
+import { StatusBadge, IncidentBadge, incidentLabel } from "@/components/shared/badges";
 import {
   adminApi,
   plansApi,
@@ -229,7 +229,7 @@ function AdminOverviewPage() {
         {/* Premium & claims trend */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="font-serif">Premium vs Claims — 12 months</CardTitle>
+            <CardTitle className="font-serif">Claims &amp; approved payouts — 12 months</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -252,8 +252,8 @@ function AdminOverviewPage() {
                   formatter={(v: number) => formatINR(v)}
                 />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Area type="monotone" dataKey="premium" stroke="#16a34a" strokeWidth={2} fill="url(#adminG1)" name="Premium collected" />
-                <Area type="monotone" dataKey="claims" stroke="#ef4444" strokeWidth={2} fill="url(#adminG2)" name="Claims paid" />
+                <Area type="monotone" dataKey="premium" stroke="#16a34a" strokeWidth={2} fill="url(#adminG1)" name="Payout approved" />
+                <Area type="monotone" dataKey="claims" stroke="#ef4444" strokeWidth={2} fill="url(#adminG2)" name="Claims filed" />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -307,23 +307,28 @@ function AdminOverviewPage() {
           </CardContent>
         </Card>
 
-        {/* Recent claims */}
+        {/* Top farms by claims */}
         <Card>
           <CardHeader>
-            <CardTitle className="font-serif">Recent claims</CardTitle>
+            <CardTitle className="font-serif">Top farms by claims</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 max-h-80 overflow-y-auto">
-            {data.recentClaims.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/60 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">
-                    {c.farmName} · {c.incidentType}
+            {data.topFarms.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">No claims filed yet.</p>
+            ) : (
+              data.topFarms.map((f, i) => (
+                <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/60 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{f.farmName}</div>
+                    <div className="text-xs text-muted-foreground truncate">{f.farmerName}</div>
                   </div>
-                  <div className="text-xs text-muted-foreground">{c.policyNumber}</div>
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-semibold">{f.claimCount} claims</div>
+                    <div className="text-xs text-muted-foreground">{formatINR(f.totalClaimed)}</div>
+                  </div>
                 </div>
-                <StatusBadge status={c.status} />
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
@@ -339,28 +344,35 @@ function AdminClaimsPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const load = () => {
+  const load = (p?: number) => {
+    const targetPage = p ?? page;
     setLoading(true);
     adminApi
-      .listClaims(1, 100, {
+      .listClaims(targetPage, 20, {
         status: statusFilter === "All" ? undefined : statusFilter,
         searchTerm: search || undefined,
       })
-      .then((r) => setClaims(r.items))
+      .then((r) => {
+        setClaims(r.items);
+        setTotalPages(r.totalPages || 1);
+      })
+      .catch(() => toast.error("Failed to load claims"))
       .finally(() => setLoading(false));
   };
   // H19 FIX: Debounce search to avoid hammering the API on every keystroke
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(load, 350);
+    debounceRef.current = setTimeout(() => { setPage(1); load(1); }, 350);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [statusFilter, search]);
 
   // Detail view
   const detailId = route.params.id;
-  if (detailId) return <AdminClaimDetail id={detailId} onUpdated={load} />;
+  if (detailId) return <AdminClaimDetail id={detailId} onUpdated={() => load()} />;
 
   return (
     <div>
@@ -442,6 +454,16 @@ function AdminClaimsPage() {
           ))}
         </div>
       )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 text-sm">
+          <span className="text-muted-foreground">Page {page} of {totalPages}</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => { setPage(page - 1); load(page - 1); }}>Previous</Button>
+            <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => { setPage(page + 1); load(page + 1); }}>Next</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -462,6 +484,7 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
     adminApi
       .getClaim(id)
       .then(setClaim)
+      .catch(() => setClaim(null))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -481,6 +504,8 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
       toast.success("Marked as under review");
       setClaim({ ...claim, status: "UnderReview" });
       onUpdated();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to mark under review");
     } finally {
       setBusy(false);
     }
@@ -551,7 +576,7 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
         ← Back to claims
       </Button>
       <PageHeader
-        title={`Claim — ${claim.incidentType}`}
+        title={`Claim — ${incidentLabel(claim.incidentType)}`}
         subtitle={`${claim.farmName} · Filed ${formatDate(claim.createdAt)}`}
         actions={<StatusBadge status={claim.status} />}
       />
@@ -748,7 +773,7 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
               type="number"
               value={approveAmount}
               onChange={(e) => setApproveAmount(e.target.value)}
-              placeholder="197000"
+              placeholder="e.g. 25000"
               autoFocus
             />
             <p className="text-xs text-muted-foreground">
@@ -841,22 +866,53 @@ function AdminPlansPage() {
   const [editing, setEditing] = useState<InsurancePlanDto | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleting, setDeleting] = useState<InsurancePlanDto | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const load = () => {
+  const load = async (p: number) => {
     setLoading(true);
-    adminApi.listPlans().then(setPlans).finally(() => setLoading(false));
+    try {
+      const res = await adminApi.listPlans({ page: p, pageSize: 12 });
+      const isArr = Array.isArray(res);
+      setPlans(isArr ? (res as unknown as InsurancePlanDto[]) : (res.items || []));
+      setTotalPages(isArr ? 1 : (res.totalPages || 1));
+    } catch {
+      toast.error("Failed to load plans");
+    } finally {
+      setLoading(false);
+    }
   };
-  useEffect(load, []);
+  useEffect(() => {
+    Promise.resolve().then(() => load(page));
+  }, [page]);
+
+  const openEdit = async (plan: InsurancePlanDto) => {
+    // Fetch full detail so description / minArea / maxArea are not lost on save
+    try {
+      const detail = await adminApi.getPlan(plan.id);
+      setEditing(detail);
+    } catch {
+      setEditing(plan);
+    }
+  };
 
   const toggleActive = async (plan: InsurancePlanDto) => {
-    if (plan.isActive) {
-      await plansApi.deactivate(plan.id);
-      toast.success("Plan deactivated");
-    } else {
-      await plansApi.activate(plan.id);
-      toast.success("Plan activated");
+    setBusy(true);
+    try {
+      if (plan.isActive) {
+        await plansApi.deactivate(plan.id);
+        toast.success("Plan deactivated");
+      } else {
+        await plansApi.activate(plan.id);
+        toast.success("Plan activated");
+      }
+      load(page);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update plan");
+    } finally {
+      setBusy(false);
     }
-    load();
   };
 
   return (
@@ -875,7 +931,7 @@ function AdminPlansPage() {
               <DialogHeader>
                 <DialogTitle>Create insurance plan</DialogTitle>
               </DialogHeader>
-              <PlanForm onSaved={() => { setCreateOpen(false); load(); }} />
+              <PlanForm onSaved={() => { setCreateOpen(false); load(page); }} />
             </DialogContent>
           </Dialog>
         }
@@ -921,12 +977,13 @@ function AdminPlansPage() {
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <Button variant="outline" size="sm" onClick={() => setEditing(plan)} className="flex-1">
+                  <Button variant="outline" size="sm" onClick={() => openEdit(plan)} className="flex-1">
                     <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
+                    disabled={busy}
                     onClick={() => toggleActive(plan)}
                     className={plan.isActive ? "text-amber-700 hover:bg-amber-50" : "text-emerald-700 hover:bg-emerald-50"}
                   >
@@ -935,6 +992,7 @@ function AdminPlansPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    disabled={busy}
                     onClick={() => setDeleting(plan)}
                     className="text-rose-600 hover:bg-rose-50"
                   >
@@ -947,12 +1005,22 @@ function AdminPlansPage() {
         </div>
       )}
 
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 text-sm">
+          <span className="text-muted-foreground">Page {page} of {totalPages}</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
+            <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
+          </div>
+        </div>
+      )}
+
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit plan</DialogTitle>
           </DialogHeader>
-          {editing && <PlanForm initial={editing} onSaved={() => { setEditing(null); load(); }} />}
+          {editing && <PlanForm initial={editing} onSaved={() => { setEditing(null); load(page); }} />}
         </DialogContent>
       </Dialog>
 
@@ -969,10 +1037,14 @@ function AdminPlansPage() {
             <AlertDialogAction
               onClick={async () => {
                 if (!deleting) return;
-                await plansApi.delete(deleting.id);
-                toast.success("Plan deleted");
-                setDeleting(null);
-                load();
+                try {
+                  await plansApi.delete(deleting.id);
+                  toast.success("Plan deleted");
+                  setDeleting(null);
+                  load(page);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to delete plan");
+                }
               }}
               className="bg-rose-600 hover:bg-rose-700"
             >
@@ -1126,6 +1198,16 @@ function AdminUsersPage() {
       .finally(() => setLoading(false));
   };
 
+  const reloadUsers = (p: number) => {
+    const role = tab === "admins" ? "Admin" : undefined;
+    if (users.length === 1 && p > 1) {
+      setPage(p - 1);
+      loadUsers(p - 1, search, role);
+    } else {
+      loadUsers(p, search, role);
+    }
+  };
+
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const load = (immediate?: boolean) => {
@@ -1186,11 +1268,11 @@ function AdminUsersPage() {
       toast.success(`User ${actionType}d`);
       setActionUser(null);
       setReason("");
-      loadUsers(page, search, tab === "admins" ? "Admin" : undefined);
+      reloadUsers(page);
     }
-    catch (err: any)
+    catch (err)
     {
-      toast.error(err?.message || `Failed to ${actionType} user`);
+      toast.error(err instanceof Error ? err.message : `Failed to ${actionType} user`);
     }
     finally
     {
@@ -1262,7 +1344,7 @@ function AdminUsersPage() {
                           <span className="text-xs text-muted-foreground">{f.email}</span>
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          {f.phoneNumber ?? "No phone"} · {f.totalFarms} farms · {f.totalPolicies} policies · {f.totalClaims} claims
+                          {f.phoneNumber ?? "No phone"} · {f.farmsCount} farms · {f.policiesCount} policies · {f.claimsCount} claims
                         </div>
                       </div>
                       <Button variant="ghost" size="sm">View →</Button>
@@ -1318,7 +1400,7 @@ function AdminUsersPage() {
                       {u.status === "Active" && u.role !== "Admin" && (
                         <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setActionUser(u); setActionType("suspend"); }} className="text-amber-700 hover:bg-amber-50">Suspend</Button>
                       )}
-                      {u.status === "Suspended" && (
+                      {(u.status === "Suspended" || u.status === "PendingVerification") && (
                         <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setActionUser(u); setActionType("activate"); }} className="text-emerald-700 hover:bg-emerald-50">Activate</Button>
                       )}
                       {u.status !== "Blocked" && u.role !== "Admin" && (
@@ -1384,7 +1466,7 @@ function AdminUsersPage() {
                     Suspend
                   </Button>
                 )}
-                {userDetail.status === "Suspended" && (
+                {(userDetail.status === "Suspended" || userDetail.status === "PendingVerification") && (
                   <Button size="sm" className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white" onClick={() => { setUserDetail(null); setActionUser(userDetail); setActionType("activate"); }}>
                     Activate
                   </Button>
@@ -1486,17 +1568,27 @@ function AdminAuditPage() {
   const [logs, setLogs] = useState<AuditLogDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [detailLogId, setDetailLogId] = useState<string | null>(null);
   const [logDetail, setLogDetail] = useState<AuditLogDto | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => {
-    adminApi.auditLogs().then(setLogs).finally(() => setLoading(false));
-  }, []);
+    Promise.resolve().then(() => setLoading(true));
+    adminApi
+      .auditLogs({ page, pageSize: 20 })
+      .then((res) => {
+        setLogs(res.items || []);
+        setTotalPages(res.totalPages || 1);
+      })
+      .catch(() => toast.error("Failed to load audit logs"))
+      .finally(() => setLoading(false));
+  }, [page]);
 
   useEffect(() => {
-    if (!detailLogId) { setLogDetail(null); return; }
-    setDetailLoading(true);
+    if (!detailLogId) return;
+    Promise.resolve().then(() => setDetailLoading(true));
     adminApi.getAuditLog(detailLogId).then(setLogDetail).finally(() => setDetailLoading(false));
   }, [detailLogId]);
 
@@ -1565,7 +1657,17 @@ function AdminAuditPage() {
         </Card>
       )}
 
-      <Dialog open={!!detailLogId} onOpenChange={(o) => { if (!o) setDetailLogId(null); }}>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 text-sm">
+          <span className="text-muted-foreground">Page {page} of {totalPages}</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
+            <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
+          </div>
+        </div>
+      )}
+
+      <Dialog open={!!detailLogId} onOpenChange={(o) => { if (!o) { setDetailLogId(null); setLogDetail(null); } }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1770,11 +1872,19 @@ function AdminPoliciesPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const lookupIsPaid =
+    lookupPolicy?.status === "PaymentReceived" || lookupPolicy?.status === "Active";
+  const selectedIsPaid =
+    selectedPolicy?.paymentStatus === "Paid" ||
+    selectedPolicy?.status === "PaymentReceived" ||
+    selectedPolicy?.status === "Active";
+
   const loadPolicies = async (p: number, statusFilter?: string) => {
     setLoading(true);
     try {
       const params: any = { page: p, pageSize: 15 };
-      if (statusFilter && statusFilter !== "all") params.status = statusFilter;
+      if (statusFilter && statusFilter !== "all")
+        params.status = statusFilter === "payment_received" ? "PaymentReceived" : statusFilter;
       const result = await adminApi.listPolicies(params);
       setPolicies(result.items || []);
       setTotalPages(result.totalPages || 1);
@@ -1787,8 +1897,7 @@ function AdminPoliciesPage() {
   };
 
   useEffect(() => {
-    setPage(1);
-    loadPolicies(1, tab);
+    Promise.resolve().then(() => loadPolicies(1, tab));
   }, [tab]);
 
   const lookup = async () => {
@@ -1805,16 +1914,26 @@ function AdminPoliciesPage() {
     }
   };
 
+  const reloadAfterAction = async () => {
+    if (policies.length === 1 && page > 1) {
+      setPage(page - 1);
+      await loadPolicies(page - 1, tab);
+    } else {
+      await loadPolicies(page, tab);
+    }
+  };
+
   const doApprove = async () => {
     if (!selectedPolicy) return;
     setBusy(true);
     try {
       await adminApi.approvePolicy(selectedPolicy.id);
       toast.success("Policy approved and activated");
-      setPolicies((prev) => prev.filter((p) => p.id !== selectedPolicy.id));
-      setTotalCount((c) => c - 1);
       setApproveOpen(false);
+      const approvedId = selectedPolicy.id;
       setSelectedPolicy(null);
+      if (lookupPolicy?.id === approvedId) setLookupPolicy(null);
+      await reloadAfterAction();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to approve");
     } finally {
@@ -1827,12 +1946,13 @@ function AdminPoliciesPage() {
     setBusy(true);
     try {
       await adminApi.rejectPolicy(selectedPolicy.id, rejectReason);
-      toast.success("Policy rejected" + (selectedPolicy.paymentStatus === "Paid" ? " (refund initiated)" : ""));
-      setPolicies((prev) => prev.filter((p) => p.id !== selectedPolicy.id));
-      setTotalCount((c) => c - 1);
+      toast.success("Policy rejected" + (selectedIsPaid ? " (refund initiated)" : ""));
       setRejectOpen(false);
+      const rejectedId = selectedPolicy.id;
       setSelectedPolicy(null);
       setRejectReason("");
+      if (lookupPolicy?.id === rejectedId) setLookupPolicy(null);
+      await reloadAfterAction();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to reject");
     } finally {
@@ -1845,12 +1965,13 @@ function AdminPoliciesPage() {
     setBusy(true);
     try {
       await adminApi.cancelPolicy(selectedPolicy.id, cancelReason);
-      toast.success("Policy cancelled" + (selectedPolicy.paymentStatus === "Paid" ? " (refund initiated)" : ""));
-      setPolicies((prev) => prev.filter((p) => p.id !== selectedPolicy.id));
-      setTotalCount((c) => c - 1);
+      toast.success("Policy cancelled" + (selectedIsPaid ? " (refund initiated)" : ""));
       setCancelOpen(false);
+      const cancelledId = selectedPolicy.id;
       setSelectedPolicy(null);
       setCancelReason("");
+      if (lookupPolicy?.id === cancelledId) setLookupPolicy(null);
+      await reloadAfterAction();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to cancel");
     } finally {
@@ -1880,7 +2001,7 @@ function AdminPoliciesPage() {
             key={t.key}
             size="sm"
             variant={tab === t.key ? "default" : "outline"}
-            onClick={() => setTab(t.key)}
+            onClick={() => { setTab(t.key); setPage(1); }}
             className={tab === t.key ? "bg-emerald-700 hover:bg-emerald-800 text-white" : ""}
           >
             {t.label}
@@ -1945,7 +2066,7 @@ function AdminPoliciesPage() {
                           {p.paymentStatus}
                         </Badge>
                       </td>
-                      {(tab === "payment_received" || tab === "active") && (
+                      {(tab === "pending" || tab === "payment_received" || tab === "active") && (
                         <td className="p-3 text-right">
                           <div className="flex gap-1 justify-end">
                             {tab === "payment_received" && (
@@ -1966,6 +2087,16 @@ function AdminPoliciesPage() {
                                   <XCircle className="h-3.5 w-3.5" /> Reject
                                 </Button>
                               </>
+                            )}
+                            {tab === "pending" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-rose-600 hover:bg-rose-50 border-rose-200 gap-1 h-8"
+                                onClick={() => { setSelectedPolicy(p); setRejectOpen(true); }}
+                              >
+                                <XCircle className="h-3.5 w-3.5" /> Reject
+                              </Button>
                             )}
                             {tab === "active" && (
                               <Button
@@ -2029,12 +2160,12 @@ function AdminPoliciesPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge
-                    variant={lookupPolicy.paymentStatus === "Paid" ? "default" : "outline"}
-                    className={lookupPolicy.paymentStatus === "Paid"
+                    variant={lookupIsPaid ? "default" : "outline"}
+                    className={lookupIsPaid
                       ? "bg-emerald-100 text-emerald-800 border-emerald-200"
                       : "text-amber-700 border-amber-200"}
                   >
-                    {lookupPolicy.paymentStatus}
+                    {lookupIsPaid ? "Paid" : "Unpaid"}
                   </Badge>
                   <StatusBadge status={lookupPolicy.status} />
                 </div>
@@ -2061,6 +2192,17 @@ function AdminPoliciesPage() {
                   >
                     <CheckCircle2 className="h-4 w-4" /> Approve policy
                   </Button>
+                  <Button
+                    onClick={() => { setSelectedPolicy(lookupPolicy); setRejectOpen(true); }}
+                    variant="outline"
+                    className="text-rose-600 hover:bg-rose-50 border-rose-200 gap-1.5"
+                  >
+                    <XCircle className="h-4 w-4" /> Reject policy
+                  </Button>
+                </div>
+              )}
+              {lookupPolicy.status === "Pending" && (
+                <div className="flex gap-2 pt-4 border-t">
                   <Button
                     onClick={() => { setSelectedPolicy(lookupPolicy); setRejectOpen(true); }}
                     variant="outline"
@@ -2124,7 +2266,7 @@ function AdminPoliciesPage() {
               placeholder="Enter reason for rejection..."
               autoFocus
             />
-            {selectedPolicy?.paymentStatus === "Paid" && (
+            {selectedIsPaid && (
               <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
                 This policy has a confirmed payment. A refund will be initiated automatically.
               </p>
@@ -2157,7 +2299,7 @@ function AdminPoliciesPage() {
               placeholder="Enter reason for cancellation..."
               autoFocus
             />
-            {selectedPolicy?.paymentStatus === "Paid" && (
+            {selectedIsPaid && (
               <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
                 This policy has a confirmed payment. A refund will be initiated automatically.
               </p>

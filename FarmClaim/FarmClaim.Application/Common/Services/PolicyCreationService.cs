@@ -12,7 +12,8 @@ namespace FarmClaim.Application.Common.Services
         Task<InsurancePolicy> CreatePolicyAsync(
             Guid userId, Guid farmId, Guid insurancePlanId,
             DateTime startDate, DateTime? endDate, string? policyNumber,
-            CancellationToken ct);
+            CancellationToken ct,
+            bool isRenewal = false);
     }
 
     public class PolicyCreationService : IPolicyCreationService
@@ -34,7 +35,8 @@ namespace FarmClaim.Application.Common.Services
         public async Task<InsurancePolicy> CreatePolicyAsync(
             Guid userId, Guid farmId, Guid insurancePlanId,
             DateTime startDate, DateTime? endDate, string? policyNumber,
-            CancellationToken ct)
+            CancellationToken ct,
+            bool isRenewal = false)
         {
             _logger.LogInformation("Creating insurance policy for user: {UserId}", userId);
 
@@ -105,16 +107,21 @@ namespace FarmClaim.Application.Common.Services
                 computedPolicyNumber = GeneratePolicyNumber();
             }
 
-            var existingPolicy = await _context.InsurancePolicies
-                .AnyAsync(p => p.FarmId == farmId
-                               && (p.Status == PolicyStatus.Pending || p.Status == PolicyStatus.Active || p.Status == PolicyStatus.PaymentReceived)
-                               && !p.IsDeleted, ct);
+            // Renewals replace an expiring/expired policy on the same farm, so the
+            // existing-policy guard must not block the successor policy.
+            if (!isRenewal)
+            {
+                var existingPolicy = await _context.InsurancePolicies
+                    .AnyAsync(p => p.FarmId == farmId
+                                   && (p.Status == PolicyStatus.Pending || p.Status == PolicyStatus.Active || p.Status == PolicyStatus.PaymentReceived)
+                                   && !p.IsDeleted, ct);
 
-            if (existingPolicy)
-                throw new ValidationException(new List<string>
-                {
-                    "This farm already has a pending, active, or payment-received policy. Wait for approval or cancel it first."
-                });
+                if (existingPolicy)
+                    throw new ValidationException(new List<string>
+                    {
+                        "This farm already has a pending, active, or payment-received policy. Wait for approval or cancel it first."
+                    });
+            }
 
             var area = farm.AreaInHectares;
             var sumInsured = plan.SumInsuredPerHectare * area;

@@ -252,7 +252,7 @@ export interface AdminDashboardDto {
   claimsByStatus: Record<string, number>;
   policiesByStatus: Record<string, number>;
   claimsByIncidentType: Record<string, number>;
-  recentClaims: ClaimListDto[];
+  topFarms: { farmName: string; farmerName: string; claimCount: number; totalClaimed: number }[];
   premiumTrend: { month: string; premium: number; claims: number }[];
 }
 

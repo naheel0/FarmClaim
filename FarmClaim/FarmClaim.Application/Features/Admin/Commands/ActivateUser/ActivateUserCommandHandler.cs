@@ -33,6 +33,12 @@ namespace FarmClaim.Application.Features.Admin.Commands.ActivateUser
             if (user == null)
                 throw new NotFoundException(nameof(User), cmd.TargetUserId);
 
+            if (user.Role == UserRole.Admin)
+                throw new ForbiddenException("Cannot activate an Admin user.");
+
+            if (user.Status == UserStatus.Blocked)
+                throw new ForbiddenException("Blocked users cannot be re-activated (blocking is permanent).");
+
             if (user.Status == UserStatus.Active)
                 throw new ValidationException(new List<string> { "User is already active." });
 

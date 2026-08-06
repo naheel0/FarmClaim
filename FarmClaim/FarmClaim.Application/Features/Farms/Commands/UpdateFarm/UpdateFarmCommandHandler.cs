@@ -106,7 +106,7 @@ namespace FarmClaim.Application.Features.Farms.Commands.UpdateFarm
                 CreatedAt = farm.CreatedAt,
                 UpdatedAt = farm.UpdatedAt,
                 IsActive = farm.IsActive,
-                PoliciesCount = farm.InsurancePolicies?.Count(p => !p.IsDeleted && p.Status == PolicyStatus.Active) ?? 0,
+                PoliciesCount = farm.InsurancePolicies?.Count(p => !p.IsDeleted) ?? 0,
                 ClaimsCount = farm.Claims?.Count(c => !c.IsDeleted) ?? 0
             };
         }

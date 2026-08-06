@@ -54,6 +54,18 @@ namespace FarmClaim.Infrastructure.Data.Configurations
 
             b.HasIndex(p => p.InsurancePlanId);
 
+            // === Renewal chain (self-referencing, nullable, no cascade path) ===
+            b.HasOne(p => p.RenewedFromPolicy)
+                .WithMany()
+                .HasForeignKey(p => p.RenewedFromPolicyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.Property(p => p.RenewedFromPolicyId)
+                .HasColumnType("uniqueidentifier")
+                .IsRequired(false);
+
+            b.HasIndex(p => p.RenewedFromPolicyId);
+
             // Optimistic concurrency
             b.Property(p => p.RowVersion).IsRowVersion();
 

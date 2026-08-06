@@ -290,6 +290,8 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.Converters.Add(
             new System.Text.Json.Serialization.JsonStringEnumConverter());
+        options.JsonSerializerOptions.Converters.Add(new FarmClaim.API.Services.UtcDateTimeJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new FarmClaim.API.Services.UtcDateTimeNullableJsonConverter());
     });
 builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, FarmClaim.API.Services.UserIdProvider>();
 

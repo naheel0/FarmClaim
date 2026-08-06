@@ -103,7 +103,7 @@ namespace FarmClaim.API.Controllers
 
         // GET /api/v1/Payments/policy/{policyId}
         [HttpGet("policy/{policyId}")]
-        [ProducesResponseType(typeof(PaymentResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(List<PaymentResponseDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetPaymentByPolicyId(Guid policyId)
         {
             try
@@ -111,10 +111,6 @@ namespace FarmClaim.API.Controllers
                 var userId = GetUserId();
                 var result = await _mediator.Send(new GetPaymentByPolicyIdQuery(policyId, userId));
                 return Ok(result);
-            }
-            catch (NotFoundException ex)
-            {
-                return NotFound(new { error = ex.Message });
             }
             catch (Exception ex)
             {

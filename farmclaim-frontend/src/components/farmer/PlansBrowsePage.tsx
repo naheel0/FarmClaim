@@ -61,8 +61,8 @@ export function PlansBrowsePage() {
   }, []);
 
   useEffect(() => {
-    if (!detailPlanId) { setDetailPlan(null); return; }
-    setDetailLoading(true);
+    if (!detailPlanId) return;
+    Promise.resolve().then(() => setDetailLoading(true));
     plansApi.get(detailPlanId).then(setDetailPlan).finally(() => setDetailLoading(false));
   }, [detailPlanId]);
 
@@ -140,11 +140,11 @@ export function PlansBrowsePage() {
           plan={buyingPlan}
           farms={farms}
           onClose={() => setBuyingPlan(null)}
-          onBought={() => {
+          onSuccess={() => {
             setBuyingPlan(null);
             navigate("/dashboard/policies");
-            toast.success("Policy purchased! Pending admin approval.");
           }}
+          onFailed={() => setBuyingPlan(null)}
         />
       )}
 
@@ -152,7 +152,7 @@ export function PlansBrowsePage() {
         planId={detailPlanId}
         plan={detailPlan}
         loading={detailLoading}
-        onClose={() => setDetailPlanId(null)}
+        onClose={() => { setDetailPlanId(null); setDetailPlan(null); }}
       />
     </div>
   );
@@ -323,12 +323,14 @@ function BuyPlanDialog({
   plan,
   farms,
   onClose,
-  onBought,
+  onSuccess,
+  onFailed,
 }: {
   plan: InsurancePlanDto;
   farms: FarmResponseDto[];
   onClose: () => void;
-  onBought: () => void;
+  onSuccess: () => void;
+  onFailed: () => void;
 }) {
   const user = useApp((s) => s.user);
   const [farmId, setFarmId] = useState(farms[0]?.id ?? "");
@@ -341,6 +343,10 @@ function BuyPlanDialog({
   const farm = farms.find((f) => f.id === farmId);
   const premium = farm ? plan.premiumRatePerHectare * farm.areaInHectares : 0;
   const sumInsured = farm ? plan.sumInsuredPerHectare * farm.areaInHectares : 0;
+  const installmentCount = plan.supportsInstallments ? plan.installmentCount ?? 1 : 1;
+  const isInstallment = installmentCount > 1;
+  const installmentAmount = isInstallment ? Math.round((premium / installmentCount) * 100) / 100 : premium;
+  const displayAmount = isInstallment ? installmentAmount : premium;
 
   const buy = async () => {
     setSaving(true);
@@ -353,40 +359,53 @@ function BuyPlanDialog({
         startDate: new Date(startDate).toISOString(),
       });
 
-      // 2. Open Razorpay checkout for the premium
+      // 2. For installment plans, pay the first installment; otherwise the full premium
+      const firstSchedule = [...(policy.premiumSchedules ?? [])].sort(
+        (a, b) => a.installmentNumber - b.installmentNumber
+      )[0];
+      const amountDue = firstSchedule?.amountDue ?? policy.premium;
+
       setPayStep("checkout");
       setPaying(true);
-      const result = await paymentsApi.checkout(policy.id, {
-        name: user ? `${user.firstName} ${user.lastName}` : undefined,
-        email: user?.email ?? undefined,
-        phone: user?.phoneNumber ?? undefined,
-      });
+      const result = await paymentsApi.checkout(
+        policy.id,
+        {
+          name: user ? `${user.firstName} ${user.lastName}` : undefined,
+          email: user?.email ?? undefined,
+          phone: user?.phoneNumber ?? undefined,
+        },
+        firstSchedule?.id
+      );
       setPaying(false);
 
       if (!result.ok) {
+        // M2 FIX: surface only the error; do NOT show a "purchased" success toast.
         toast.error(
           result.error
             ? `Payment failed: ${result.error}`
-            : "Payment failed — policy remains pending"
+            : "Payment failed — policy remains pending. Pay from the Policies page."
         );
-        onBought();
+        onFailed();
         return;
       }
 
-      // 3. Verify signature server-side
+      // 3. Signature verification result
       setPayStep("verifying");
       if (result.verified) {
-        toast.success(`Payment verified · ${result.paymentId}`, {
-          description: "Policy is now active.",
+        toast.success(firstSchedule ? "First installment paid" : `Payment verified · ${result.paymentId}`, {
+          description: firstSchedule
+            ? `Installment 1 of ${policy.premiumSchedules?.length ?? 0} received. Policy stays pending until all installments are paid.`
+            : "Your policy is awaiting admin approval.",
         });
+        setPayStep("done");
+        onSuccess();
       } else {
         toast.warning("Payment completed but verification pending", {
           description:
             "Your policy is created. Our team will reconcile the payment manually if needed.",
         });
+        onSuccess();
       }
-      setPayStep("done");
-      onBought();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Purchase failed");
       setPayStep("idle");
@@ -455,8 +474,8 @@ function BuyPlanDialog({
 
               <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 mt-5 space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Premium</span>
-                  <span className="font-semibold">{formatINR(premium)}</span>
+                  <span className="text-muted-foreground">{isInstallment ? '1st installment' : 'Premium'}</span>
+                  <span className="font-semibold">{formatINR(displayAmount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Sum insured</span>
@@ -473,8 +492,13 @@ function BuyPlanDialog({
                 {plan.supportsInstallments && (
                   <div className="flex justify-between text-emerald-700">
                     <span className="font-medium">Installment plan available</span>
-                    <span className="font-medium">{plan.installmentCount}× {plan.installmentFrequency}</span>
+                    <span className="font-medium">{installmentCount}× {plan.installmentFrequency} · 1st due now ({formatINR(installmentAmount)})</span>
                   </div>
+                )}
+                {isInstallment && (
+                  <p className="text-xs text-emerald-900/70 pt-1">
+                    You'll pay the 1st installment now; the remaining installments are due from the Policies page.
+                  </p>
                 )}
                 {payStep !== "idle" && (
                   <div className="mt-2 pt-2 border-t border-emerald-200 flex items-center gap-2 text-xs text-emerald-900">
@@ -502,7 +526,7 @@ function BuyPlanDialog({
                   ) : (
                     <CreditCard className="h-4 w-4" />
                   )}
-                  {saving || paying ? stepLabel[payStep] : `Pay ${formatINR(premium)} & buy`}
+                  {saving || paying ? stepLabel[payStep] : isInstallment ? `Pay 1st installment ${formatINR(installmentAmount)} & buy` : `Pay ${formatINR(displayAmount)} & buy`}
                 </Button>
               </div>
             </>
