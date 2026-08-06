@@ -24,6 +24,7 @@ namespace FarmClaim.Infrastructure.Services
         private readonly HttpClient _downloadClient;
         private readonly ILogger<GeminiVisionService> _logger;
         private readonly string _apiKey;
+        private readonly string _model;
 
         private static readonly HashSet<string> AllowedImageHosts = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -37,6 +38,7 @@ namespace FarmClaim.Infrastructure.Services
             _logger = logger;
             _apiKey = config["GeminiVision:ApiKey"]
                 ?? throw new InvalidOperationException("GeminiVision:ApiKey is not configured.");
+            _model = config["GeminiVision:Model"] ?? "gemini-2.0-flash";
 
             // API key only on the Gemini API client — NOT on the download client
             _httpClient.DefaultRequestHeaders.Add("x-goog-api-key", _apiKey);
@@ -84,7 +86,7 @@ namespace FarmClaim.Infrastructure.Services
                 generationConfig = new { temperature = 0.2, topP = 0.8, maxOutputTokens = 1024 }
             };
 
-            var url = "v1beta/models/gemini-2.0-flash:generateContent";
+            var url = $"v1beta/models/{_model}:generateContent";
 
             try
             {
