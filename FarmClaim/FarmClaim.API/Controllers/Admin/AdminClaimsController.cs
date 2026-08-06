@@ -19,17 +19,20 @@ namespace FarmClaim.API.Controllers
     {
         private readonly IMediator _mediator;
         private readonly INotificationService _notificationService;
+        private readonly IClaimBackgroundJobService _backgroundJobService;
         private readonly ILogger<AdminClaimsController> _logger;
 
         public AdminClaimsController(
             IMediator mediator,
             IApplicationDbContext context,
             INotificationService notificationService,
+            IClaimBackgroundJobService backgroundJobService,
             ILogger<AdminClaimsController> logger)
             : base(logger)
         {
             _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
+            _backgroundJobService = backgroundJobService ?? throw new ArgumentNullException(nameof(backgroundJobService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -249,6 +252,24 @@ namespace FarmClaim.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to pay claim {ClaimId}", claimId);
+                return HandleError(ex);
+            }
+        }
+
+        // POST /api/v1/Admin/Claims/{claimId}/reprocess
+        // PROD: Re-run weather + AI verification for a claim (e.g. after a farm was
+        // geo-tagged or to retry a previously failed external call).
+        [HttpPost("{claimId}/reprocess")]
+        public IActionResult ReprocessVerification(Guid claimId)
+        {
+            try
+            {
+                _backgroundJobService.ReprocessVerification(claimId);
+                return Ok(new { message = "Verification reprocessing started", claimId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to reprocess claim verification {ClaimId}", claimId);
                 return HandleError(ex);
             }
         }

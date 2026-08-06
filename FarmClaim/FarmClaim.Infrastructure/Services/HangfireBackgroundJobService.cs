@@ -24,5 +24,11 @@ namespace FarmClaim.Infrastructure.Services
             _backgroundJobClient.Enqueue<ClaimBackgroundJobService>(
                 x => x.ProcessAIAnalysisAsync(claimId));
         }
+
+        public void ReprocessVerification(Guid claimId)
+        {
+            _backgroundJobClient.Enqueue<ClaimBackgroundJobService>(
+                x => x.ReprocessVerificationAsync(claimId));
+        }
     }
 }

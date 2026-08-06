@@ -14,6 +14,7 @@ namespace FarmClaim.Infrastructure.Jobs
         private readonly IWeatherService _weatherService;
         private readonly IGeminiVisionService _geminiService;
         private readonly INotificationService _notificationService;
+        private readonly IBackgroundJobClient _backgroundJobClient;
         private readonly ILogger<ClaimBackgroundJobService> _logger;
 
         public ClaimBackgroundJobService(
@@ -21,12 +22,14 @@ namespace FarmClaim.Infrastructure.Jobs
             IWeatherService weatherService,
             IGeminiVisionService geminiService,
             INotificationService notificationService,
+            IBackgroundJobClient backgroundJobClient,
             ILogger<ClaimBackgroundJobService> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _weatherService = weatherService ?? throw new ArgumentNullException(nameof(weatherService));
             _geminiService = geminiService ?? throw new ArgumentNullException(nameof(geminiService));
             _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
+            _backgroundJobClient = backgroundJobClient ?? throw new ArgumentNullException(nameof(backgroundJobClient));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -48,17 +51,27 @@ namespace FarmClaim.Infrastructure.Jobs
                 return;
             }
 
-            if (claim.WeatherSnapshot != null)
+            // PROD: only skip when weather is genuinely complete — an error/pending
+            // status must be allowed to (re)run, otherwise the old "non-null string"
+            // guard permanently blocked re-runs after farm coordinates were added.
+            if (claim.WeatherStatus == "Completed")
             {
-                _logger.LogInformation("Hangfire: Claim {ClaimId} already has weather data, skipping", claimId);
+                _logger.LogInformation("Hangfire: Claim {ClaimId} already has completed weather data, skipping", claimId);
                 return;
             }
 
             if (claim.Policy?.Farm?.Latitude == null || claim.Policy.Farm.Longitude == null)
             {
+                claim.WeatherStatus = "FailedUnavailable";
+                claim.WeatherErrorMessage = "Farm has no coordinates — add a farm location to enable weather verification";
+                claim.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
                 _logger.LogWarning("Hangfire: Farm has no coordinates for claim {ClaimId}", claimId);
                 return;
             }
+
+            claim.WeatherStatus = "Pending";
+            claim.WeatherErrorMessage = null;
 
             try
             {
@@ -71,6 +84,8 @@ namespace FarmClaim.Infrastructure.Jobs
                 {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
+                claim.WeatherStatus = "Completed";
+                claim.WeatherErrorMessage = null;
                 claim.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
@@ -90,8 +105,14 @@ namespace FarmClaim.Infrastructure.Jobs
             }
             catch (Exception ex)
             {
+                claim.WeatherStatus = "FailedUnavailable";
+                claim.WeatherErrorMessage = ex.Message;
+                claim.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
                 _logger.LogError(ex, "Hangfire: Weather analysis failed for claim {ClaimId}", claimId);
-                throw;
+                // Do NOT rethrow — a failed external weather call should not burn
+                // Hangfire retries forever and wedge the queue. Mark FailedUnavailable
+                // and let an admin re-process later.
             }
         }
 
@@ -136,6 +157,8 @@ namespace FarmClaim.Infrastructure.Jobs
                     confidence = "N/A",
                     recommendation = "Upload damage photos to enable AI assessment"
                 }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                claim.AIAnalysisStatus = "RequiresPhotos";
+                claim.AIErrorMessage = "No damage photos uploaded — AI analysis requires at least one image.";
                 claim.AIAnalysisUpdatedAt = DateTime.UtcNow;
                 claim.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
@@ -150,6 +173,9 @@ namespace FarmClaim.Infrastructure.Jobs
                 });
                 return;
             }
+
+            claim.AIAnalysisStatus = "Pending";
+            claim.AIErrorMessage = null;
 
             // H10 FIX: Skip AI analysis if it ran recently AND no new images were uploaded.
             // Old logic used `imageCountAtLastAnalysis - wasAnalyzedWith` which was wrong —
@@ -183,6 +209,8 @@ namespace FarmClaim.Infrastructure.Jobs
                 {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
+                claim.AIAnalysisStatus = "Completed";
+                claim.AIErrorMessage = null;
                 claim.AIAnalysisUpdatedAt = DateTime.UtcNow;
                 claim.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
@@ -208,9 +236,48 @@ namespace FarmClaim.Infrastructure.Jobs
             }
             catch (Exception ex)
             {
+                claim.AIAnalysisStatus = "Failed";
+                claim.AIErrorMessage = ex.Message;
+                claim.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
                 _logger.LogError(ex, "Hangfire: AI analysis failed for claim {ClaimId}", claimId);
-                throw;
+                // Do NOT rethrow — mark Failed so an admin can re-process instead of
+                // burning Hangfire retries and wedging the queue.
             }
+        }
+
+        // ============================================
+        // REPROCESS VERIFICATION
+        // Backfills weather/AI for claims created before the structured-status
+        // model (or after a farm was geo-tagged). Resets status to Pending and
+        // re-enqueues both jobs. Each job is itself idempotent.
+        // ============================================
+        [AutomaticRetry(Attempts = 0)]
+        public async Task ReprocessVerificationAsync(Guid claimId)
+        {
+            var claim = await _context.Claims
+                .FirstOrDefaultAsync(c => c.Id == claimId && !c.IsDeleted);
+
+            if (claim == null)
+                return;
+
+            if (claim.WeatherStatus != "Completed")
+            {
+                claim.WeatherStatus = "Pending";
+                claim.WeatherErrorMessage = null;
+            }
+
+            if (claim.AIAnalysisStatus != "Completed")
+            {
+                claim.AIAnalysisStatus = "Pending";
+                claim.AIErrorMessage = null;
+            }
+
+            await _context.SaveChangesAsync();
+
+            _backgroundJobClient.Enqueue<ClaimBackgroundJobService>(x => x.ProcessWeatherAnalysisAsync(claimId));
+            _backgroundJobClient.Enqueue<ClaimBackgroundJobService>(x => x.ProcessAIAnalysisAsync(claimId));
+            _logger.LogInformation("Hangfire: Reprocess verification enqueued for claim {ClaimId}", claimId);
         }
     }
 }

@@ -13,18 +13,15 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
     public class CreateClaimCommandHandler : IRequestHandler<CreateClaimCommand, ClaimResponseDto>
     {
         private readonly IApplicationDbContext _context;
-        private readonly IWeatherService _weatherService;
         private readonly IClaimBackgroundJobService _backgroundJobService;
         private readonly ILogger<CreateClaimCommandHandler> _logger;
 
         public CreateClaimCommandHandler(
             IApplicationDbContext context,
-            IWeatherService weatherService,
             IClaimBackgroundJobService backgroundJobService,
             ILogger<CreateClaimCommandHandler> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
-            _weatherService = weatherService ?? throw new ArgumentNullException(nameof(weatherService));
             _backgroundJobService = backgroundJobService ?? throw new ArgumentNullException(nameof(backgroundJobService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -60,6 +57,15 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
 
             if (farm == null)
                 throw new NotFoundException(nameof(Farm), command.Request.FarmId);
+
+            // PROD: A claim needs a geo-tagged farm for weather verification.
+            // Block claim filing on non-geo-tagged farms with a clear message
+            // instead of silently degrading to an error snapshot.
+            if (!farm.Latitude.HasValue || !farm.Longitude.HasValue)
+                throw new ValidationException(new List<string>
+                {
+                    "This farm has no location set. Add a location to the farm before filing a claim so weather verification can run."
+                });
 
             // Validate policy belongs to the selected farm
             if (policy.FarmId != command.Request.FarmId)
@@ -98,42 +104,14 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
                 IncidentType = command.Request.IncidentType,
                 Description = command.Request.Description?.Trim(),
                 DamageDescription = command.Request.DamageDescription?.Trim(),
-                Status = ClaimStatus.Pending
+                Status = ClaimStatus.Pending,
+
+                // PROD: Structured verification state. The Hangfire job is the single
+                // source of truth for weather; we only mark intent here so the UI can
+                // show "pending" instead of a silent empty card.
+                WeatherStatus = "Pending",
+                AIAnalysisStatus = (command.Request.ImageUrls?.Count ?? 0) > 0 ? "Pending" : "RequiresPhotos"
             };
-
-            // Weather API (your existing code — unchanged)
-            try
-            {
-                if (farm.Latitude.HasValue && farm.Longitude.HasValue)
-                {
-                    var weather = await _weatherService.GetWeatherAsync(
-                        farm.Latitude.Value, farm.Longitude.Value,
-                        command.Request.IncidentDate, ct);
-
-                    claim.WeatherSnapshot = JsonSerializer.Serialize(weather,
-                        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-
-                    _logger.LogInformation("Weather snapshot saved for claim");
-                }
-                else
-                {
-                    _logger.LogWarning("Farm {FarmId} has no coordinates, skipping weather fetch", farm.Id);
-                    claim.WeatherSnapshot = JsonSerializer.Serialize(new
-                    {
-                        error = "Farm coordinates missing",
-                        message = "Weather data unavailable — add farm coordinates to enable weather verification"
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Weather API failed, continuing without weather data");
-                claim.WeatherSnapshot = JsonSerializer.Serialize(new
-                {
-                    error = "Weather data unavailable",
-                    message = ex.Message
-                });
-            }
 
             // Store image URLs as ClaimImage entities so the background job can fetch them
             // H13 FIX: Only accept Cloudinary URLs — reject arbitrary URLs to prevent SSRF
@@ -203,6 +181,10 @@ namespace FarmClaim.Application.Features.Claims.Commands.CreateClaim
                 RejectionReason = claim.RejectionReason,
                 WeatherSnapshot = claim.WeatherSnapshot,
                 AIAnalysisResult = claim.AIAnalysisResult,
+                WeatherStatus = claim.WeatherStatus,
+                WeatherErrorMessage = claim.WeatherErrorMessage,
+                AIAnalysisStatus = claim.AIAnalysisStatus,
+                AIErrorMessage = claim.AIErrorMessage,
                 CreatedAt = claim.CreatedAt,
                 UpdatedAt = claim.UpdatedAt,
                 Images = new()

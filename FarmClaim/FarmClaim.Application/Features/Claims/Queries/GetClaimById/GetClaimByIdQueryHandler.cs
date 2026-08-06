@@ -61,6 +61,10 @@ namespace FarmClaim.Application.Features.Claims.Queries.GetClaimById
                 UpdatedAt = claim.UpdatedAt,
                 WeatherSnapshot = claim.WeatherSnapshot,
                 AIAnalysisResult = claim.AIAnalysisResult,
+                WeatherStatus = claim.WeatherStatus,
+                WeatherErrorMessage = claim.WeatherErrorMessage,
+                AIAnalysisStatus = claim.AIAnalysisStatus,
+                AIErrorMessage = claim.AIErrorMessage,
                 Images = claim.Images
                     .Where(i => !i.IsDeleted)
                     .OrderBy(i => i.DisplayOrder)

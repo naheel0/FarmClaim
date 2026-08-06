@@ -96,6 +96,8 @@ namespace FarmClaim.Application.Features.Claims.Commands.UploadClaimImages
             {
                 // Always re-run AI analysis so newly uploaded images are included
                 // The background job fetches ALL claim images from DB, so pass claimId only
+                claim.AIAnalysisStatus = "Pending";
+                await _context.SaveChangesAsync(ct);
                 _backgroundJobService.EnqueueAIAnalysis(request.ClaimId);
             }
 

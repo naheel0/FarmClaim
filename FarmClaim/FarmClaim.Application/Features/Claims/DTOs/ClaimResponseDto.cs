@@ -36,6 +36,12 @@ namespace FarmClaim.Application.Features.Claims.DTOs
         public string? WeatherSnapshot { get; init; }
         public string? AIAnalysisResult { get; init; }
 
+        // PROD: Structured verification state
+        public string? WeatherStatus { get; init; }
+        public string? WeatherErrorMessage { get; init; }
+        public string? AIAnalysisStatus { get; init; }
+        public string? AIErrorMessage { get; init; }
+
         public DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }
         public List<ClaimImageDto> Images { get; init; } = new();

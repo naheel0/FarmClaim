@@ -665,6 +665,11 @@ export const adminApi = {
       `/api/v1/Admin/Claims/${id}/pay`,
       { method: "PUT", body: JSON.stringify({ paymentReference: reference }) }
     ),
+  reprocessClaim: (id: string) =>
+    request<void>(
+      `/api/v1/Admin/Claims/${id}/reprocess`,
+      { method: "POST" }
+    ),
   listUsers: (params?: { page?: number; pageSize?: number; searchTerm?: string; role?: string; status?: string }) => {
     const query = new URLSearchParams();
     if (params?.page) query.set("pageNumber", String(params.page));

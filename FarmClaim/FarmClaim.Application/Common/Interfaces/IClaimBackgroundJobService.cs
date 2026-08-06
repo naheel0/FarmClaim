@@ -4,5 +4,6 @@
     {
         void EnqueueWeatherAnalysis(Guid claimId);
         void EnqueueAIAnalysis(Guid claimId);
+        void ReprocessVerification(Guid claimId);
     }
 }

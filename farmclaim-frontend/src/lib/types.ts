@@ -212,6 +212,10 @@ export interface ClaimResponseDto {
   paymentReference: string | null;
   weatherSnapshot: string | null;
   aiAnalysisResult: string | null;
+  weatherStatus: string | null;
+  weatherErrorMessage: string | null;
+  aiAnalysisStatus: string | null;
+  aiErrorMessage: string | null;
   createdAt: string;
   updatedAt: string | null;
   images: ClaimImageDto[] | null;

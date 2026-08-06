@@ -75,6 +75,19 @@ namespace FarmClaim.Domain.Entities
         // Tracks when AI analysis was last completed — used to prevent redundant analysis on new image uploads
         public DateTime? AIAnalysisUpdatedAt { get; set; }
 
+        // Structured verification state (PROD): distinguishes pending / completed / failed / needs-input
+        [MaxLength(30)]
+        public string? WeatherStatus { get; set; }
+
+        [Column(TypeName = "nvarchar(max)")]
+        public string? WeatherErrorMessage { get; set; }
+
+        [MaxLength(30)]
+        public string? AIAnalysisStatus { get; set; }
+
+        [Column(TypeName = "nvarchar(max)")]
+        public string? AIErrorMessage { get; set; }
+
         public virtual ICollection<ClaimImage> Images { get; set; } = new List<ClaimImage>();
     }
 }

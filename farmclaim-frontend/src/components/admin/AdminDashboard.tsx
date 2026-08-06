@@ -27,6 +27,7 @@ import {
   Eye,
   Brain,
   CloudRain,
+  RefreshCcw,
   Globe,
   User,
   ArrowRight,
@@ -570,6 +571,23 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
     }
   };
 
+  const reprocess = async () => {
+    setBusy(true);
+    try {
+      await adminApi.reprocessClaim(claim.id);
+      toast.success("Verification reprocessing started");
+      setClaim({
+        ...claim,
+        weatherStatus: claim.weatherStatus !== "Completed" ? "Pending" : claim.weatherStatus,
+        aiAnalysisStatus: claim.aiAnalysisStatus !== "Completed" ? "Pending" : claim.aiAnalysisStatus,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to start reprocessing");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto">
       <Button variant="ghost" size="sm" onClick={() => navigate("/admin/claims")} className="mb-4">
@@ -634,6 +652,17 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
               {claim.weatherSnapshot && (
                 <WeatherSnapshotCard json={claim.weatherSnapshot} />
               )}
+              {!claim.weatherSnapshot && claim.weatherStatus === "FailedUnavailable" && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800/90">
+                  <span className="font-medium">Weather unavailable</span>
+                  {claim.weatherErrorMessage ? ` — ${claim.weatherErrorMessage}` : " — add a farm location to enable weather verification."}
+                </div>
+              )}
+              {!claim.weatherSnapshot && claim.weatherStatus === "Pending" && (
+                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800/90">
+                  Weather verification in progress…
+                </div>
+              )}
               {claim.suggestedPayout != null && claim.suggestedPayout > 0 && (
                 <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
                   <div className="text-xs text-amber-700 uppercase tracking-wide font-medium">AI suggested payout</div>
@@ -681,6 +710,23 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
                       </>
                     );
                   })()}
+                </div>
+              )}
+              {!claim.aiAnalysisResult && claim.aiAnalysisStatus === "RequiresPhotos" && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800/90">
+                  <span className="font-medium">AI analysis unavailable</span>
+                  <span> — no damage photos uploaded. Request photos from the farmer to enable AI assessment.</span>
+                </div>
+              )}
+              {!claim.aiAnalysisResult && claim.aiAnalysisStatus === "Pending" && (
+                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800/90">
+                  AI damage analysis in progress… refresh shortly.
+                </div>
+              )}
+              {!claim.aiAnalysisResult && claim.aiAnalysisStatus === "Failed" && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-800/90">
+                  <span className="font-medium">AI analysis failed</span>
+                  {claim.aiErrorMessage ? ` — ${claim.aiErrorMessage}` : ""} Use "Re-process" to retry.
                 </div>
               )}
             </CardContent>
@@ -739,6 +785,20 @@ function AdminClaimDetail({ id, onUpdated }: { id: string; onUpdated: () => void
                 <div className="text-center py-4 text-sm text-rose-700">
                   Rejected: {claim.rejectionReason}
                 </div>
+              )}
+              {(claim.weatherStatus === "FailedUnavailable" ||
+                claim.weatherStatus === "Pending" ||
+                claim.aiAnalysisStatus === "RequiresPhotos" ||
+                claim.aiAnalysisStatus === "Pending" ||
+                claim.aiAnalysisStatus === "Failed") && (
+                <Button
+                  onClick={reprocess}
+                  disabled={busy}
+                  variant="outline"
+                  className="w-full mt-2"
+                >
+                  <RefreshCcw className="h-4 w-4 mr-1.5" /> Re-process verification
+                </Button>
               )}
             </CardContent>
           </Card>

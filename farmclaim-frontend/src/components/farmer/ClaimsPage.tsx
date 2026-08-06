@@ -450,6 +450,11 @@ function NewClaimForm({ onSaved }: { onSaved: () => void }) {
             <p className="text-xs text-muted-foreground">
                 Upload up to 10 photos of the damage. Our AI vision model will analyse them.
             </p>
+            {images.length === 0 && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                No photos added — you can still submit, but AI damage assessment will be unavailable until photos are uploaded.
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -463,7 +468,7 @@ function NewClaimForm({ onSaved }: { onSaved: () => void }) {
           </Button>
           <Button
             type="submit"
-            disabled={saving || !farmId || !policyId}
+            disabled={saving || !farmId || !policyId || !hasCoordinates}
             className="bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -761,6 +766,28 @@ function ClaimDetail({ id }: { id: string }) {
           {claim.weatherSnapshot && (
             <WeatherSnapshotCard json={claim.weatherSnapshot} />
           )}
+          {!claim.weatherSnapshot && claim.weatherStatus === "FailedUnavailable" && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800/90">
+              <span className="font-medium">Weather verification unavailable</span>
+              {claim.weatherErrorMessage ? ` — ${claim.weatherErrorMessage}` : ""}
+            </div>
+          )}
+          {!claim.weatherSnapshot && claim.weatherStatus === "Pending" && (
+            <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800/90">
+              Weather verification in progress…
+            </div>
+          )}
+          {!claim.aiAnalysisResult && claim.aiAnalysisStatus === "RequiresPhotos" && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800/90">
+              <span className="font-medium">AI damage assessment unavailable</span>
+              <span> — upload damage photos to enable AI analysis.</span>
+            </div>
+          )}
+          {!claim.aiAnalysisResult && claim.aiAnalysisStatus === "Pending" && (
+            <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800/90">
+              AI damage analysis in progress…
+            </div>
+          )}
         </div>
 
         {/* Sidebar */}
@@ -947,6 +974,8 @@ interface WeatherData {
   windSpeedKmh?: number;
   weatherCondition?: string;
   source?: string;
+  error?: string;
+  message?: string;
 }
 
 function getWeatherIcon(condition: string) {
@@ -1003,6 +1032,29 @@ export function WeatherSnapshotCard({ json }: { json: string }) {
             </div>
           </div>
           <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-line">{json}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // PROD: Show the stored reason instead of a bare "— / Unknown" card when the
+  // snapshot is actually an error object (e.g. farm had no coordinates at claim time).
+  if (data.error) {
+    return (
+      <Card className="border-amber-200 bg-gradient-to-br from-amber-50/60 to-orange-50/30">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-xl bg-amber-500 text-white grid place-items-center">
+              <CloudRain className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="font-serif text-lg font-semibold">Weather snapshot</div>
+              <div className="text-xs text-muted-foreground">At time of incident</div>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-amber-800/90 leading-relaxed">
+            {data.message || "Weather data is unavailable for this claim."}
+          </p>
         </CardContent>
       </Card>
     );
