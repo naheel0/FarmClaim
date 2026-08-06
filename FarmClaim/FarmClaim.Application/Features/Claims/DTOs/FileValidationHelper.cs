@@ -47,6 +47,9 @@ namespace FarmClaim.Application.Features.Claims.DTOs
             if (bytesRead < headerBytes.Length)
                 throw new ValidationException(new List<string> { $"File {file.FileName}: file is too small to be valid" });
 
+            if (file.Content.CanSeek)
+                file.Content.Seek(0, SeekOrigin.Begin);
+
             var isValid = signatures.Any(signature =>
                 headerBytes.Take(signature.Length).SequenceEqual(signature));
 
